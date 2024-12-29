@@ -1,27 +1,31 @@
-from crewai import Agent, Task
-from langchain_mistralai import ChatMistralAI
+from crewai import Agent
+from langchain.chat_models.base import BaseChatModel
+from agents.base_model import ValidationResult
 
-validator_agent = Agent(
-    role="Code Validator",
-    goal="Test and validate generated Streamlit applications",
-    backstory="""You are a thorough QA engineer who ensures all code meets requirements,
-    follows best practices, and functions correctly. You catch edge cases and potential
-    issues before they become problems.""",
-    allow_delegation=True,
-    verbose=True,
-    tools=[],  # Add testing tools here
-    llm=ChatMistralAI(
-        model="mistral-large2",
-        mistral_api_key="your_mistral_api_key"
-    )
-)
-
-validate_code_task = Task(
-    description="""
-    Test and validate the generated application code.
-    Ensure all requirements are met and functioning correctly.
-    Check for security issues and edge cases.
-    Verify AI/ML integrations work as expected.
-    """,
-    agent=validator_agent
-)
+class ValidatorAgent(Agent):
+    """Agent responsible for testing and validating code"""
+    
+    def __init__(self, llm: BaseChatModel):
+        super().__init__(
+            role="Code Validator",
+            goal="Test and validate generated code",
+            backstory="""Quality assurance specialist focused on code testing and validation. 
+            You have a keen eye for potential issues and extensive experience in ensuring 
+            code quality and reliability.""",
+            llm=llm,
+            verbose=True
+        )
+        
+    def validate_code(self, code: str) -> ValidationResult:
+        """
+        Test and validate the generated code
+        
+        Args:
+            code (str): Code to validate
+            
+        Returns:
+            ValidationResult: Validation results and suggestions
+        """
+        # The actual validation will be handled by CrewAI's task system
+        # This method is for documentation and type hinting
+        pass

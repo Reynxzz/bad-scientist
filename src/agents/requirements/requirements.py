@@ -1,28 +1,31 @@
-from crewai import Agent, Task
-from langchain_mistralai import ChatMistralAI
-from base_model import StreamlitAppRequirements
+from crewai import Agent
+from langchain.chat_models.base import BaseChatModel
+from agents.base_model import RequirementAnalysis
 
-requirements_agent = Agent(
-    role="Requirements Analyzer",
-    goal="Analyze and break down app requirements from natural language descriptions",
-    backstory="""You are an expert requirements analyst with deep knowledge of Streamlit
-    and modern app development practices. You excel at translating business needs into
-    technical specifications.""",
-    allow_delegation=True,
-    verbose=True,
-    tools=[],
-    llm=ChatMistralAI(
-        model="mistral-large2",
-        mistral_api_key="your_mistral_api_key"
-    )
-)
-
-analyze_requirements_task = Task(
-    description="""
-    Analyze the provided app description and extract detailed requirements.
-    Break down the description into specific technical components and functionality needed.
-    Consider security implications and data requirements.
-    """,
-    agent=requirements_agent,
-    output_pydantic=StreamlitAppRequirements
-)
+class RequirementAgent(Agent):
+    """Agent responsible for analyzing business requirements"""
+    
+    def __init__(self, llm: BaseChatModel):
+        super().__init__(
+            role="Requirement Analyzer",
+            goal="Analyze business requirements and extract key technical components",
+            backstory="""Expert at analyzing business requirements and breaking them down 
+            into technical components. You have years of experience in translating business 
+            needs into actionable technical specifications in python.""",
+            llm=llm,
+            verbose=True
+        )
+        
+    def analyze_requirements(self, prompt: str) -> RequirementAnalysis:
+        """
+        Analyze the business requirements and extract key components
+        
+        Args:
+            prompt (str): The business requirement prompt
+            
+        Returns:
+            RequirementAnalysis: Structured analysis of the requirements
+        """
+        # The actual analysis will be handled by CrewAI's task system
+        # This method is for documentation and type hinting
+        pass

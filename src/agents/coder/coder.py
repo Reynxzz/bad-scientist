@@ -1,28 +1,31 @@
-from crewai import Agent, Task
-from langchain_mistralai import ChatMistralAI
-from base_model import GeneratedCode
+from crewai import Agent
+from langchain.chat_models.base import BaseChatModel
+from agents.base_model import TechnicalSpec
 
-coder_agent = Agent(
-    role="Code Generator",
-    goal="Generate functional Streamlit application code",
-    backstory="""You are an expert Python developer specializing in Streamlit applications.
-    You write clean, efficient code following best practices and patterns. You ensure all
-    code is secure and well-documented.""",
-    allow_delegation=True,
-    verbose=True,
-    tools=[],  # Add code generation tools here
-    llm=ChatMistralAI(
-        model="mistral-large2",
-        mistral_api_key="your_mistral_api_key"
-    )
-)
-
-generate_code_task = Task(
-    description="""
-    Generate the complete Streamlit application code based on requirements.
-    Implement all required functionality and components.
-    Ensure code is clean, efficient, and well-documented.
-    """,
-    agent=coder_agent,
-    output_pydantic=GeneratedCode
-)
+class CoderAgent(Agent):
+    """Agent responsible for generating code implementations"""
+    
+    def __init__(self, llm: BaseChatModel):
+        super().__init__(
+            role="Code Generator",
+            goal="Generate high-quality code based on technical specifications",
+            backstory="""Expert programmer specialized in implementing technical solutions. 
+            You have extensive experience in writing clean, efficient, and maintainable code 
+            across multiple programming languages and frameworks.""",
+            llm=llm,
+            verbose=True
+        )
+        
+    def generate_code(self, tech_spec: TechnicalSpec) -> str:
+        """
+        Generate code based on technical specifications
+        
+        Args:
+            tech_spec (TechnicalSpec): Technical specifications to implement
+            
+        Returns:
+            str: Generated code implementation
+        """
+        # The actual code generation will be handled by CrewAI's task system
+        # This method is for documentation and type hinting
+        pass

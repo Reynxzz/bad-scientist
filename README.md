@@ -1,0 +1,3 @@
+# Bad Scientist AI
+
+Bad Scientist **transforms text descriptions into working Streamlit apps**. It features a smart **multi-agent RAG** system that ensures generated apps are functional and aligned with the latest Streamlit implementations, AI/ML models, tools, and technical documentation. The system seamlessly integrates ideas with internal organizational context and use cases, ensuring secure and relevant application development with the help of **Snowflake's Cortex Search** and **Mistral AI**.

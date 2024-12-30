@@ -1,11 +1,13 @@
 from crewai import Agent
 from langchain.chat_models.base import BaseChatModel
 from agents.base_model import RequirementAnalysis
+from typing import List
+from langchain.tools import Tool
 
 class RequirementAgent(Agent):
     """Agent responsible for analyzing business requirements"""
     
-    def __init__(self, llm: BaseChatModel):
+    def __init__(self, llm: BaseChatModel, tools: List[Tool]):
         super().__init__(
             role="Requirement Analyzer",
             goal="Analyze business requirements and extract key technical components",
@@ -13,6 +15,7 @@ class RequirementAgent(Agent):
             into technical components. You have years of experience in translating business 
             needs into actionable technical specifications in python.""",
             llm=llm,
+            tools=tools,
             verbose=True
         )
         

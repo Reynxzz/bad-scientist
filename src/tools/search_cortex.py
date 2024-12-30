@@ -6,6 +6,7 @@ from crewai_tools.tools.base_tool import BaseTool
 from dotenv import load_dotenv
 import enum
 import os
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 load_dotenv()
 
@@ -120,12 +121,12 @@ class CortexSearchTechnicalTool(BaseTool):
         
         results = search_service.search(
             query=query,
-            columns=["doc_text", "source"],
+            columns=["doc_text"],
             limit=5
         )
         
         search_results = [
-            SearchResult(doc_text=r['doc_text'], source=r['source'])
+            SearchResult(doc_text=r['doc_text'], source='')
             for r in results.results
         ]
         
@@ -143,10 +144,10 @@ class DocumentProcessor:
         self.session.sql(f"USE SCHEMA {SCHEMA}").collect()
         
         self._create_document_table(DocumentType.REQUIREMENTS)
-        self._create_document_table(DocumentType.TECHNICAL_DOCS)
+        # self._create_document_table(DocumentType.TECHNICAL_DOCS)
         
         self._create_search_service(DocumentType.REQUIREMENTS)
-        self._create_search_service(DocumentType.TECHNICAL_DOCS)
+        # self._create_search_service(DocumentType.TECHNICAL_DOCS)
 
     def _create_document_table(self, doc_type: DocumentType):
         if doc_type.value == 'req_docs':
@@ -162,18 +163,21 @@ class DocumentProcessor:
             pass
 
     def _create_search_service(self, doc_type: DocumentType):
-        self.session.sql(f"""
-            CREATE OR REPLACE CORTEX SEARCH SERVICE {doc_type.value}_search_svc
-            ON doc_text
-            WAREHOUSE = {WAREHOUSE}
-            TARGET_LAG = '1 hour'
-            AS 
-                SELECT 
-                    doc_text,
-                    source,
-                    metadata
-                FROM {doc_type.value}_chunks
-        """).collect()
+        if doc_type.value == 'req_docs':
+            self.session.sql(f"""
+                CREATE OR REPLACE CORTEX SEARCH SERVICE {doc_type.value}_search_svc
+                ON doc_text
+                WAREHOUSE = {WAREHOUSE}
+                TARGET_LAG = '1 hour'
+                AS 
+                    SELECT 
+                        doc_text,
+                        source,
+                        metadata
+                    FROM {doc_type.value}_chunks
+            """).collect()
+        else:
+            pass
 
     def process_document(self, file_path: str, doc_type: DocumentType, source: str = None) -> List[str]:
         """Process document and split into chunks"""
@@ -191,24 +195,23 @@ class DocumentProcessor:
         return chunks
 
     def _split_into_chunks(self, text: str, chunk_size: int = 1000) -> List[str]:
-        """Split text into manageable chunks"""
-        words = text.split()
-        chunks = []
-        current_chunk = []
-        current_size = 0
+        """Split text into manageable chunks using LangChain's RecursiveCharacterTextSplitter
         
-        for word in words:
-            if current_size + len(word) > chunk_size:
-                chunks.append(" ".join(current_chunk))
-                current_chunk = [word]
-                current_size = len(word)
-            else:
-                current_chunk.append(word)
-                current_size += len(word)
-                
-        if current_chunk:
-            chunks.append(" ".join(current_chunk))
+        Args:
+            text: The input text to be split
+            chunk_size: Maximum size of each chunk in characters
             
+        Returns:
+            List of text chunks
+        """
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=200,
+            length_function=len,
+            separators=["\n\n", "\n", " ", ""]
+        )
+        
+        chunks = text_splitter.split_text(text)
         return chunks
 
     def _store_chunks(self, chunks: List[str], doc_type: DocumentType, source: str):

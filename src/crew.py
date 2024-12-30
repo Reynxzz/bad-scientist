@@ -13,6 +13,7 @@ from agents.researcher.researcher import ResearcherAgent
 from agents.coder.coder import CoderAgent
 # from agents.validator.validator import ValidatorAgent
 # from langchain_google_genai import ChatGoogleGenerativeAI
+from custom_cortex_llm.litellm_cortex import CrewSnowflakeLLM
 
 # Import tools
 from tools.search_cortex import create_search_tools, DocumentProcessor, DocumentType
@@ -39,12 +40,18 @@ def create_crew(prompt: str, docs_path: Optional[str] = None):
     snowpark_session = Session.builder.configs(connection_params).create()
 
     # llm = LLM(
-    #     api_key=os.getenv("MISTRAL_API_KEY"),
     #     model="mistral/mistral-large-latest",
     # ),
 
+    # llm = CrewSnowflakeLLM(
+    #     session=snowpark_session,
+    #     model_name="mistral-large2",
+    #     temperature=0.7,
+    #     max_tokens=2048,
+    #     request_timeout=30
+    # )
     llm = LLM(
-        model="gemini/gemini-1.5-pro-latest",
+        model="gemini/gemini-1.5-flash",
         temperature=0.7
     )
     
@@ -54,7 +61,7 @@ def create_crew(prompt: str, docs_path: Optional[str] = None):
     tools = create_search_tools(snowpark_session)
     
     # Initialize agents
-    requirement_agent = RequirementAgent(llm)
+    requirement_agent = RequirementAgent(llm, tools)
     researcher_agent = ResearcherAgent(llm, tools)
     coder_agent = CoderAgent(llm)
     # validator_agent = ValidatorAgent(llm)
@@ -68,15 +75,34 @@ def create_crew(prompt: str, docs_path: Optional[str] = None):
     # Define tasks
     tasks = [
         Task(
-            description=f"Analyze the following business requirement and extract key technical components: {prompt}",
+            description="""Analyze the business requirements using the Search Requirements Documents tool.
+            Input: {prompt}
+            
+            Steps:
+            1. Use the Search Requirements Documents tool to query relevant requirements with:
+            - query: Extract key phrases from the prompt
+            - doc_type: "requirements"
+            2. Analyze and extract key technical components from the search results
+            3. Compile findings into a structured list""",
             expected_output="A detailed list of technical components and requirements extracted from the business requirements",
-            agent=requirement_agent
+            agent=requirement_agent,
+            tools=[create_search_tools(snowpark_session)[0]]  # Requirements search tool
         ),
         Task(
-            description="Research implementation details for the identified technical components using the search_documents tool",
+            description="""Research technical implementation details using the Search Technical Documentation tool.
+            
+            Steps:
+            1. For each technical component identified:
+            - Use the Search Technical Documentation tool with:
+                - query: Component name and key technical terms
+                - doc_type: "technical_docs"
+            2. Analyze the search results to extract implementation patterns and specifications
+            3. Compile findings into comprehensive technical documentation""",
             expected_output="Comprehensive technical specifications and implementation details for each component",
-            agent=researcher_agent
-        ),
+            agent=researcher_agent,
+            tools=[create_search_tools(snowpark_session)[1]]  # Technical docs search tool
+            ),
+            
         Task(
             description="Generate code based on the technical specifications",
             expected_output="Complete, working code implementation that meets the technical specifications",

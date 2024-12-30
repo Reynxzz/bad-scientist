@@ -14,7 +14,7 @@ SCHEMA = os.getenv("SNOWFLAKE_SCHEMA")
 WAREHOUSE = os.getenv("SNOWFLAKE_WAREHOUSE")
 
 class DocumentType(enum.Enum):
-    REQUIREMENTS = "doc_chunks"
+    REQUIREMENTS = "req_docs"
     TECHNICAL_DOCS = "streamlit_docs"
 
 class SearchInput(BaseModel):
@@ -149,14 +149,17 @@ class DocumentProcessor:
         self._create_search_service(DocumentType.TECHNICAL_DOCS)
 
     def _create_document_table(self, doc_type: DocumentType):
-        self.session.sql(f"""
-            CREATE TABLE IF NOT EXISTS {doc_type.value}_chunks (
-                id INTEGER AUTOINCREMENT,
-                doc_text STRING,
-                source STRING,
-                metadata VARIANT
-            )
-        """).collect()
+        if doc_type.value == 'req_docs':
+            self.session.sql(f"""
+                CREATE TABLE IF NOT EXISTS {doc_type.value}_chunks (
+                    id INTEGER AUTOINCREMENT,
+                    doc_text STRING,
+                    source STRING,
+                    metadata VARIANT
+                )
+            """).collect()
+        else:
+            pass
 
     def _create_search_service(self, doc_type: DocumentType):
         self.session.sql(f"""

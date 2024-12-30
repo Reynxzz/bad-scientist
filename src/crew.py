@@ -1,8 +1,9 @@
 from typing import Optional
 from pathlib import Path
 import streamlit as st
-from crewai import Crew, Task, Process
+from crewai import Crew, Task, Process, LLM
 from langchain_openai import ChatOpenAI
+# from langchain_mistralai import ChatMistralAI
 import tempfile
 import os
 
@@ -11,6 +12,7 @@ from agents.requirements.requirements import RequirementAgent
 from agents.researcher.researcher import ResearcherAgent
 from agents.coder.coder import CoderAgent
 # from agents.validator.validator import ValidatorAgent
+# from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Import tools
 from tools.search_cortex import create_search_tools, DocumentProcessor, DocumentType
@@ -35,10 +37,19 @@ def create_crew(prompt: str, docs_path: Optional[str] = None):
     }
     
     snowpark_session = Session.builder.configs(connection_params).create()
+
+    # llm = LLM(
+    #     api_key=os.getenv("MISTRAL_API_KEY"),
+    #     model="mistral/mistral-large-latest",
+    # ),
+
+    llm = LLM(
+        model="gemini/gemini-1.5-pro-latest",
+        temperature=0.7
+    )
     
-    # Initialize LLM
-    llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
-    
+    # llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
+
     # Create search tools
     tools = create_search_tools(snowpark_session)
     

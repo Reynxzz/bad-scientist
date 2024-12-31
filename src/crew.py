@@ -73,47 +73,88 @@ def create_crew(prompt: str, docs_path: Optional[str] = None):
         doc_processor.process_document(docs_path, DocumentType.REQUIREMENTS)
     
     # Define tasks
-    tasks = [
-        Task(
-            description="""Analyze the business requirements using the Search Requirements Documents tool.
-            Input: {prompt}
-            
-            Steps:
-            1. Use the Search Requirements Documents tool to query relevant requirements with:
-            - query: Extract key phrases from the prompt
-            - doc_type: "requirements"
-            2. Analyze and extract key technical components from the search results
-            3. Compile findings into a structured list""",
-            expected_output="A detailed list of technical components and requirements extracted from the business requirements",
-            agent=requirement_agent,
-            tools=[create_search_tools(snowpark_session)[0]]  # Requirements search tool
-        ),
-        Task(
-            description="""Research technical implementation details using the Search Technical Documentation tool.
-            
-            Steps:
-            1. For each technical component identified:
-            - Use the Search Technical Documentation tool with:
-                - query: Component name and key technical terms
-                - doc_type: "technical_docs"
-            2. Analyze the search results to extract implementation patterns and specifications
-            3. Compile findings into comprehensive technical documentation""",
-            expected_output="Comprehensive technical specifications and implementation details for each component",
-            agent=researcher_agent,
-            tools=[create_search_tools(snowpark_session)[1]]  # Technical docs search tool
-            ),
-            
-        Task(
-            description="Generate code based on the technical specifications",
-            expected_output="Complete, working code implementation that meets the technical specifications",
-            agent=coder_agent
-        ),
-        # Task(
-        #     description="Test and validate the generated code",
-        #     expected_output="Test results and validation report for the implemented code",
-        #     agent=validator_agent
-        # )
-    ]
+    requirement_task = Task(
+        description=f"""Analyze the business requirements using the Search Requirements Documents tool.
+        Input: {prompt}
+        
+        Steps:
+        1. Use the Search Requirements Documents tool to query relevant requirements with:
+        - query: Extract key phrases from the prompt
+        - doc_type: "requirements"
+        2. Analyze and extract key technical components to implement using Python only from the search results
+        3. Compile findings into a structured list with clear implementation requirements
+        4. Each requirement must be tagged with its priority and technical scope""",
+        expected_output="""
+        1. Detailed list of technical components and requirements to implement using Python only
+        2. Clear mapping of business requirements to technical components
+        3. Prioritized implementation roadmap""",
+        agent=requirement_agent,
+        tools=[create_search_tools(snowpark_session)[0]]
+        )
+    
+    researcher_sklearn_task = Task(
+        description="""Research scikit-learn implementation details based on PREVIOUSLY IDENTIFIED REQUIREMENTS using the Search Technical Documentation tool.
+        
+        Context: Use the output from the requirements analysis task as your foundation.
+        
+        Steps:
+        1. For each technical component previously identified in the requirements:
+        - Use the Search Technical Documentation tool with:
+            - query: Component name and key technical terms from requirements
+            - doc_type: "technical_docs"
+            - tech_stack: "sklearn"
+        2. Map each scikit-learn implementation pattern directly to the original requirements
+        3. Document how each implementation choice fulfills specific requirements""",
+        expected_output="""
+        1. Scikit-learn technical specifications mapped to original requirements
+        2. Implementation patterns with direct traceability to business needs
+        3. Technical documentation that maintains alignment with requirements""",
+        agent=researcher_agent,
+        context=[requirement_task],
+        tools=[create_search_tools(snowpark_session)[1]]
+        )
+    
+    researcher_streamlit_task = Task(
+        description="""Research Streamlit implementation details based on BOTH REQUIREMENTS AND SKLEARN SPECIFICATIONS using the Search Technical Documentation tool.
+        
+        Context: Use outputs from both previous requirements and scikit-learn research tasks.
+        
+        Steps:
+        1. For each UI component needed to fulfill the original requirements:
+        - Use the Search Technical Documentation tool with:
+            - query: Component requirements and sklearn integration points
+            - doc_type: "technical_docs"
+            - tech_stack: "streamlit"
+        2. Ensure UI patterns align with both business requirements and sklearn implementation
+        3. Document the connection between UI components and underlying sklearn functionality""",
+        expected_output="""
+        1. Streamlit technical specifications that align with original requirements
+        2. UI implementation patterns that support sklearn integration
+        3. Comprehensive documentation linking UI, sklearn, and business requirements""",
+        agent=researcher_agent,
+        context=[requirement_task, researcher_sklearn_task],
+        tools=[create_search_tools(snowpark_session)[1]]
+        )
+    
+    coder_task = Task(
+        description="""Generate Python implementation based on ALL PREVIOUS FINDINGS.
+        
+        Context: Use outputs from requirements analysis, sklearn research, and Streamlit research tasks.
+        
+        Steps:
+        1. Review all previous task outputs to ensure complete requirement coverage
+        2. Implement each component following the documented specifications
+        3. Maintain clear traceability between code and requirements
+        4. Include comments linking code sections to specific requirements""",
+        expected_output="""
+        1. Complete Python implementation with clear requirement traceability
+        2. Code documentation referencing original requirements
+        3. Implementation notes explaining how each requirement is fulfilled""",
+        agent=coder_agent,
+        context=[requirement_task, researcher_sklearn_task, researcher_streamlit_task]
+        )
+    
+    tasks = [requirement_task, researcher_sklearn_task, researcher_streamlit_task, coder_task]
     
     # Create crew
     crew = Crew(

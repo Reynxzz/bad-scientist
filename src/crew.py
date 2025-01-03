@@ -8,15 +8,16 @@ import tempfile
 import os
 
 # Import agents
-from agents.requirements.requirements import RequirementAgent
-from agents.researcher.researcher import ResearcherAgent
-from agents.coder.coder import CoderAgent
+from agents.crewai.requirements import RequirementAgent
+from agents.crewai.researcher import ResearcherAgent
+from agents.crewai.coder import CoderAgent
 # from agents.validator.validator import ValidatorAgent
 # from langchain_google_genai import ChatGoogleGenerativeAI
 from custom_cortex_llm.litellm_cortex import CrewSnowflakeLLM
 
 # Import tools
-from tools.search_cortex import create_search_tools, DocumentProcessor, DocumentType
+from tools.crewai.search_cortex import create_search_tools, DocumentProcessor, DocumentType
+from mistral_llm_lite import MistralCrewLLM
 
 def create_crew(prompt: str, docs_path: Optional[str] = None):
     """Create and configure the agent crew"""
@@ -39,21 +40,16 @@ def create_crew(prompt: str, docs_path: Optional[str] = None):
     
     snowpark_session = Session.builder.configs(connection_params).create()
 
-    # llm = LLM(
-    #     model="mistral/mistral-large-latest",
-    # ),
-
-    # llm = CrewSnowflakeLLM(
-    #     session=snowpark_session,
-    #     model_name="mistral-large2",
-    #     temperature=0.7,
-    #     max_tokens=2048,
-    #     request_timeout=30
-    # )
     llm = LLM(
-        model="gemini/gemini-1.5-flash",
-        temperature=0.7
+        model="openai/mistral-large-latest",
+        temperature=0.7,
+        apikey=os.getenv("MISTRAL_API_KEY")
     )
+
+    # llm = LLM(
+    #     model="gemini/gemini-1.5-flash",
+    #     temperature=0.7
+    # )
     
     # llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
 

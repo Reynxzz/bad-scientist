@@ -10,6 +10,7 @@ from agents.data_analyst import DataAnalysisAgent
 from agents.coder import CoderAgent
 from tools.search_cortex import create_search_tools, DocumentProcessor, DocumentType
 from tools.get_snowflake_tables import SnowflakeTableTool
+from custom_cortex_llm.snowflake_mistral_agents import CrewSnowflakeLLM
 
 def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = None):
     """Create and configure the agent crew"""
@@ -36,17 +37,16 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
     #     model="mistral/mistral-large-latest",
     # ),
 
-    # llm = CrewSnowflakeLLM(
-    #     session=snowpark_session,
-    #     model_name="mistral-large2",
-    #     temperature=0.7,
-    #     max_tokens=2048,
-    #     request_timeout=30
-    # )
-    llm = LLM(
-        model="gemini/gemini-1.5-flash",
-        temperature=0.7
+    llm = CrewSnowflakeLLM(
+        session=snowpark_session,
+        model_name="mistral-large2",
+        temperature=0.7,
     )
+
+    # llm = LLM(
+    #     model="gemini/gemini-1.5-flash",
+    #     temperature=0.7
+    # )
     
     # llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
 

@@ -79,40 +79,37 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
             1. Use the Search Requirements Documents tool to query relevant requirements with:
             - query: Extract key phrases from the prompt
             - doc_type: "requirements"
-            2. Analyze and extract key technical components to implement using Python only from the search results
-            3. Compile findings into a structured list with clear implementation requirements
-            4. Each requirement must be tagged with its priority and technical scope""",
+            2. Analyze and extract key technical components to implement using Python only from the search results""",
         expected_output="""
-        1. Detailed list of technical components and requirements to implement using Python only
-        2. Clear mapping of business requirements to technical components
-        3. Prioritized implementation roadmap""",
+        Detailed list of technical components and requirements to implement using Python only""",
         agent=requirement_agent,
         tools=[create_search_tools(snowpark_session)[0]]
         )
     
     data_analysis_task = Task(
-        description="""Analyze available Snowflake tables for implementation.
-        
+        description="""Determine if the requirements need to or can use available database or not. 
+        If not, just skip this step.
+        If yes, analyze available Snowflake tables for implementation.
+
         Steps:
         1. Review the requirements from the previous task
         2. Use the 'Search Snowflake Tables' tool to find relevant tables by providing a search query
            Example: you can search with query="Find tables related to rides and drivers"
         3. Analyze the returned table structures and sample data
-        4. Map the available tables and fields to the specific requirements
-        5. Document any data gaps or limitations found""",
+        4. Map the available tables and fields to the specific requirements""",
         expected_output="""Provide a detailed analysis report containing:
-        1. Complete inventory of relevant Snowflake tables found
-        2. Detailed mapping between business requirements and available data fields
-        3. Analysis of data completeness and quality
-        4. List of any identified data gaps or limitations
-        5. Recommendations for data usage in implementation""",
+        1. Detailed mapping between business requirements and available data fields. Don't make up any table names or columns that are not available.
+        2. Recommendations for data usage in implementation and example how can we use it in python""",
         agent=data_agent,
         tools=[analysis_tools],
         context=[requirement_task]
     )
     
     researcher_sklearn_task = Task(
-        description="""Research scikit-learn implementation details based on PREVIOUSLY IDENTIFIED REQUIREMENTS using the Search Technical Documentation tool.
+        description="""
+        Determine if the requirements need to or can use scikit-learn or not. 
+        If not, just skip this step.
+        If yes, Research scikit-learn implementation details based on PREVIOUSLY IDENTIFIED REQUIREMENTS using the Search Technical Documentation tool.
         
         Context: Use the output from the requirements analysis task as your foundation.
         
@@ -122,21 +119,18 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
             - query: Component name and key technical terms from requirements
             - doc_type: "technical_docs"
             - tech_stack: "sklearn"
-        2. Map each scikit-learn implementation pattern directly to the original requirements
-        3. Document how each implementation choice fulfills specific requirements""",
+        2. Map each scikit-learn implementation pattern directly to the original requirements""",
         expected_output="""
-        1. Scikit-learn technical specifications mapped to original requirements
-        2. Implementation patterns with direct traceability to business needs
-        3. Technical documentation that maintains alignment with requirements""",
+        scikit-learn requirements' implementation code in python""",
         agent=researcher_agent,
         context=[requirement_task],
         tools=[create_search_tools(snowpark_session)[1]]
         )
     
     researcher_streamlit_task = Task(
-        description="""Research Streamlit implementation details based on BOTH REQUIREMENTS AND SKLEARN SPECIFICATIONS using the Search Technical Documentation tool.
+        description="""Research Streamlit implementation details based on REQUIREMENTS using the Search Technical Documentation tool.
         
-        Context: Use outputs from both previous requirements and scikit-learn research tasks.
+        Context: Use outputs from both previous requirements and scikit-learn research tasks (if available).
         
         Steps:
         1. For each UI component needed to fulfill the original requirements:
@@ -144,12 +138,9 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
             - query: Component requirements and sklearn integration points
             - doc_type: "technical_docs"
             - tech_stack: "streamlit"
-        2. Ensure UI patterns align with both business requirements and sklearn implementation
-        3. Document the connection between UI components and underlying sklearn functionality""",
+        2. Ensure UI patterns align with both business requirements and implementation (sklearn if necesseary)""",
         expected_output="""
-        1. Streamlit technical specifications that align with original requirements
-        2. UI implementation patterns that support sklearn integration
-        3. Comprehensive documentation linking UI, sklearn, and business requirements""",
+        Streamlit's UI implementation code that fulfill the requirements and tech stack""",
         agent=researcher_agent,
         context=[requirement_task, data_analysis_task, researcher_sklearn_task],
         tools=[create_search_tools(snowpark_session)[1]]
@@ -158,15 +149,13 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
     coder_task = Task(
         description="""Generate Python implementation based on ALL PREVIOUS FINDINGS.
         
-        Context: Use outputs from requirements analysis, sklearn research, and Streamlit research tasks.
+        Context: Use outputs from requirements analysis, data analysis, sklearn research, and Streamlit research tasks as guidance.
         
         Steps:
         1. Review all previous task outputs to ensure complete requirement coverage
-        2. Implement each component following the documented specifications
-        3. Maintain clear traceability between code and requirements
-        4. Include comments linking code sections to specific requirements""",
+        2. Implement each component in python and streamlit""",
         expected_output="""
-        Output only a complete Python implementation code based on requirements defined""",
+        Output only a complete Python/streamlit implementation code. No need to add anything other than python code""",
         agent=coder_agent,
         context=[requirement_task, data_analysis_task, researcher_sklearn_task, researcher_streamlit_task]
         )

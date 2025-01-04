@@ -61,7 +61,7 @@ class SnowflakeTableTool(BaseTool):
                 
                 # Get sample data
                 sample_data = self._session.sql(f"""
-                    SELECT * FROM {table_name} LIMIT 5
+                    SELECT * FROM {table_name} LIMIT 1
                 """).collect()
                 
                 sample_str = pd.DataFrame(sample_data).to_string()

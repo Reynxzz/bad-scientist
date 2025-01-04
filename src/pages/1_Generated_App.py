@@ -47,6 +47,10 @@ def main():
                 st.subheader("Analysis Description")
                 st.markdown(st.session_state.app_results["requirements"])
             
+            with st.expander("Data Analysis", expanded=True):
+                st.subheader("Data Needed")
+                st.markdown(st.session_state.app_results["data_needed"])
+            
             # Scikit-learn Implementation
             with st.expander("Scikit-learn Implementation", expanded=False):
                 st.subheader("Implementation Approach")

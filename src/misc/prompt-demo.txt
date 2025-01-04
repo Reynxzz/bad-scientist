@@ -1,1 +1,4 @@
 Create a Streamlit application that allows users to upload PDF files, extract the text content, and calculate word frequency statistics using TF-IDF (Term Frequency-Inverse Document Frequency) analysis
+
+
+Create a Streamlit dashboard for Ubur's operations team to analyze driver performance.

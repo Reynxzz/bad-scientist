@@ -56,9 +56,10 @@ def main():
                         progress_bar.progress(25)
                         
                         requirement_task = crew.tasks[0]
-                        sklearn_task = crew.tasks[1]
-                        streamlit_task = crew.tasks[2]
-                        coder_task = crew.tasks[3]
+                        data_analysis_task = crew.tasks[1]
+                        sklearn_task = crew.tasks[2]
+                        streamlit_task = crew.tasks[3]
+                        coder_task = crew.tasks[4]
                         
                         status_text.write("Processing scikit-learn implementation...")
                         progress_bar.progress(50)
@@ -73,6 +74,7 @@ def main():
                         st.session_state.generated_code = coder_task.output.raw
                         st.session_state.app_results = {
                             "requirements": requirement_task.output.raw,
+                            "data_needed": data_analysis_task.output.raw,
                             "sklearn_specs": sklearn_task.output.raw,
                             "streamlit_specs": streamlit_task.output.raw,
                         }

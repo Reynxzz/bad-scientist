@@ -248,13 +248,23 @@ class DocumentProcessor:
     def _store_chunks(self, chunks: List[str], doc_type: DocumentType, source: str):
         """Store document chunks in Snowflake"""
         table_name = f"{doc_type.value}_chunks"
-        for chunk in chunks:
-            self.session.sql(f"""
-                INSERT INTO {table_name} (doc_text, source, metadata)
-                SELECT column1, column2, PARSE_JSON(column3)
-                FROM VALUES(?, ?, ?)
-            """, params=(chunk, source, '{}')).collect()
-        print("Chunked PDF has been stored...")
+        
+        # Truncate the existing table
+        self.session.sql(f"TRUNCATE TABLE IF EXISTS {table_name}").collect()
+        print(f"Cleared existing data from {table_name}")
+        
+        # Batch insert chunks
+        values_list = [(chunk, source, '{}') for chunk in chunks]
+        placeholders = ", ".join(["(?, ?, ?)"] * len(values_list))
+        flattened_params = [param for value_tuple in values_list for param in value_tuple]
+        
+        self.session.sql(f"""
+            INSERT INTO {table_name} (doc_text, source, metadata)
+            SELECT column1, column2, PARSE_JSON(column3)
+            FROM VALUES {placeholders}
+        """, params=flattened_params).collect()
+        
+        print(f"Stored {len(chunks)} new chunks in {table_name}")
 
 def create_search_tools(snowpark_session: Session) -> List[BaseTool]:
     """Create CrewAI tools for document search"""

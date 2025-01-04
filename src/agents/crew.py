@@ -4,10 +4,12 @@ from langchain_openai import ChatOpenAI
 import os
 
 # Import agents
-from agents.requirements.requirements import RequirementAgent
-from agents.researcher.researcher import ResearcherAgent
-from agents.coder.coder import CoderAgent
+from agents.requirements import RequirementAgent
+from agents.researcher import ResearcherAgent
+from agents.data_analyst import DataAnalysisAgent
+from agents.coder import CoderAgent
 from tools.search_cortex import create_search_tools, DocumentProcessor, DocumentType
+from tools.get_snowflake_tables import SnowflakeTableTool
 
 def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = None):
     """Create and configure the agent crew"""
@@ -49,11 +51,13 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
     # llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
 
     # Create search tools
-    tools = create_search_tools(snowpark_session)
-    
+    search_tools = create_search_tools(snowpark_session)
+    analysis_tools = SnowflakeTableTool(snowpark_session)
+
     # Initialize agents
-    requirement_agent = RequirementAgent(llm, tools)
-    researcher_agent = ResearcherAgent(llm, tools)
+    requirement_agent = RequirementAgent(llm, search_tools)
+    data_agent = DataAnalysisAgent(llm, [analysis_tools])    
+    researcher_agent = ResearcherAgent(llm, search_tools)
     coder_agent = CoderAgent(llm)
     # validator_agent = ValidatorAgent(llm)
     
@@ -85,6 +89,27 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         agent=requirement_agent,
         tools=[create_search_tools(snowpark_session)[0]]
         )
+    
+    data_analysis_task = Task(
+        description="""Analyze available Snowflake tables for implementation.
+        
+        Steps:
+        1. Review the requirements from the previous task
+        2. Use the 'Search Snowflake Tables' tool to find relevant tables by providing a search query
+           Example: you can search with query="Find tables related to rides and drivers"
+        3. Analyze the returned table structures and sample data
+        4. Map the available tables and fields to the specific requirements
+        5. Document any data gaps or limitations found""",
+        expected_output="""Provide a detailed analysis report containing:
+        1. Complete inventory of relevant Snowflake tables found
+        2. Detailed mapping between business requirements and available data fields
+        3. Analysis of data completeness and quality
+        4. List of any identified data gaps or limitations
+        5. Recommendations for data usage in implementation""",
+        agent=data_agent,
+        tools=[analysis_tools],
+        context=[requirement_task]
+    )
     
     researcher_sklearn_task = Task(
         description="""Research scikit-learn implementation details based on PREVIOUSLY IDENTIFIED REQUIREMENTS using the Search Technical Documentation tool.
@@ -126,7 +151,7 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         2. UI implementation patterns that support sklearn integration
         3. Comprehensive documentation linking UI, sklearn, and business requirements""",
         agent=researcher_agent,
-        context=[requirement_task, researcher_sklearn_task],
+        context=[requirement_task, data_analysis_task, researcher_sklearn_task],
         tools=[create_search_tools(snowpark_session)[1]]
         )
     
@@ -143,14 +168,14 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         expected_output="""
         Output only a complete Python implementation code based on requirements defined""",
         agent=coder_agent,
-        context=[requirement_task, researcher_sklearn_task, researcher_streamlit_task]
+        context=[requirement_task, data_analysis_task, researcher_sklearn_task, researcher_streamlit_task]
         )
     
-    tasks = [requirement_task, researcher_sklearn_task, researcher_streamlit_task, coder_task]
+    tasks = [requirement_task, data_analysis_task, researcher_sklearn_task, researcher_streamlit_task, coder_task]
     
     # Create crew
     crew = Crew(
-        agents=[requirement_agent, researcher_agent, coder_agent], #validator_agent
+        agents=[requirement_agent, data_agent, researcher_agent, coder_agent], #validator_agent
         tasks=tasks,
         process=Process.sequential,
         verbose=True

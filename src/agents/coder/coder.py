@@ -10,8 +10,7 @@ class CoderAgent(Agent):
             role="Code Generator",
             goal="Generate high-quality code based on technical specifications",
             backstory="""Expert programmer specialized in implementing technical solutions. 
-            You have extensive experience in writing clean, efficient, and maintainable code 
-            across multiple programming languages and frameworks.""",
+            You have extensive experience in writing clean, efficient, and maintainable python code.""",
             llm=llm,
             verbose=True
         )

@@ -9,20 +9,16 @@ def load_and_run_generated_code(code_string: str):
     """
     try:
         code_string = code_string.replace('```python', '').replace('```', '').strip()
-        # Create a temporary module
         spec = importlib.util.spec_from_loader(
             "generated_module", 
             loader=None
         )
-        module = importlib.util.module_from_spec(spec)
-        
-        # Add streamlit to the module's namespace
+        module = importlib.util.module_from_spec(spec)        
         module.st = st
         
         # Execute the code in the module's namespace
         exec(code_string, module.__dict__)
         
-        # If the code has a main() function, run it
         if hasattr(module, 'main'):
             module.main()
             
@@ -37,11 +33,10 @@ def main():
         st.warning("No application has been generated yet. Please go to the Generator page to create an application.")
         return
     
-    # Display tabs for viewing code and running app
-    tab1, tab2 = st.tabs(["Run Application", "View Details"])
+    tab1, tab2 = st.tabs(["Run Application", "View Details & Code"])
     
     with tab1:
-        st.header("Running Application")
+        st.write("Running Generated Application...")
         if st.session_state.generated_code:
             load_and_run_generated_code(st.session_state.generated_code)
     
@@ -51,21 +46,15 @@ def main():
             with st.expander("Requirements Analysis", expanded=True):
                 st.subheader("Analysis Description")
                 st.markdown(st.session_state.app_results["requirements"])
-                st.subheader("Detailed Requirements")
-                st.markdown(st.session_state.app_results["requirements"])
             
             # Scikit-learn Implementation
             with st.expander("Scikit-learn Implementation", expanded=False):
                 st.subheader("Implementation Approach")
                 st.markdown(st.session_state.app_results["sklearn_specs"])
-                st.subheader("Technical Details")
-                st.markdown(st.session_state.app_results["sklearn_specs"])
             
             # Streamlit Integration
             with st.expander("Streamlit Integration", expanded=False):
                 st.subheader("Integration Approach")
-                st.markdown(st.session_state.app_results["streamlit_specs"])
-                st.subheader("Technical Details")
                 st.markdown(st.session_state.app_results["streamlit_specs"])
             
             # Final Implementation

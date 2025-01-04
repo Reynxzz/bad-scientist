@@ -9,7 +9,7 @@ from agents.researcher.researcher import ResearcherAgent
 from agents.coder.coder import CoderAgent
 from tools.search_cortex import create_search_tools, DocumentProcessor, DocumentType
 
-def create_crew(prompt: str, docs_path: Optional[str] = None):
+def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = None):
     """Create and configure the agent crew"""
     # Initialize Snowflake session
     from snowflake.snowpark.session import Session
@@ -65,16 +65,19 @@ def create_crew(prompt: str, docs_path: Optional[str] = None):
     
     # Define tasks
     requirement_task = Task(
-        description=f"""Analyze the business requirements using the Search Requirements Documents tool.
-        Input: {prompt}
+        description=f"""Analyze the business requirements input prompt and document using the Search Requirements Documents tool.
+        Input: {prompt}.
+        docs_uploaded = {docs_uploaded}
         
         Steps:
-        1. Use the Search Requirements Documents tool to query relevant requirements with:
-        - query: Extract key phrases from the prompt
-        - doc_type: "requirements"
-        2. Analyze and extract key technical components to implement using Python only from the search results
-        3. Compile findings into a structured list with clear implementation requirements
-        4. Each requirement must be tagged with its priority and technical scope""",
+        If docs_uploaded is FALSE, no need to use the tool, just analyze  technical components to implement using Python only from the input prompt.
+        If docs_uploaded is TRUE:
+            1. Use the Search Requirements Documents tool to query relevant requirements with:
+            - query: Extract key phrases from the prompt
+            - doc_type: "requirements"
+            2. Analyze and extract key technical components to implement using Python only from the search results
+            3. Compile findings into a structured list with clear implementation requirements
+            4. Each requirement must be tagged with its priority and technical scope""",
         expected_output="""
         1. Detailed list of technical components and requirements to implement using Python only
         2. Clear mapping of business requirements to technical components

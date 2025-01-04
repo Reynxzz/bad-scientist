@@ -13,7 +13,7 @@ class RequirementAgent(Agent):
             goal="Analyze business requirements and extract key technical components",
             backstory="""Expert at analyzing business requirements and breaking them down 
             into technical components. You have years of experience in translating business 
-            needs into actionable technical specifications in python.""",
+            needs into actionable technical specifications to implement with python.""",
             llm=llm,
             tools=tools,
             verbose=True

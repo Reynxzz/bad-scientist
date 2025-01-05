@@ -40,7 +40,7 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
     llm = CrewSnowflakeLLM(
         session=snowpark_session,
         model_name="mistral-large2",
-        temperature=0.7,
+        temperature=0.5,
     )
 
     # llm = LLM(
@@ -78,7 +78,7 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         If docs_uploaded is TRUE:
             1. Use the Search Requirements Documents tool to query relevant requirements with:
             - query: Extract key phrases from the prompt
-            - doc_type: "requirements"
+            - doc_type: "requirements" (you can only use this parameter to use the tools)
             2. Analyze and extract key technical components to implement using Python only from the search results""",
         expected_output="""
         Detailed list of technical components and requirements to implement using Python only""",
@@ -87,8 +87,8 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         )
     
     data_analysis_task = Task(
-        description="""Determine if the requirements need to or can use available database or not. 
-        If not, just skip this step.
+        description="""Determine if the requirements need to use available database or not. 
+        If not, just skip this step. No need to use tools.
         If yes, analyze available Snowflake tables for implementation.
 
         Steps:
@@ -98,53 +98,28 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         3. Analyze the returned table structures and sample data
         4. Map the available tables and fields to the specific requirements""",
         expected_output="""Provide a detailed analysis report containing:
-        1. Detailed mapping between business requirements and available data fields. Don't make up any table names or columns that are not available.
-        2. Recommendations for data usage in implementation and example how can we use it in python""",
+        1. Detailed mapping between business requirements and available data fields. Don't make up any table names or columns that are not available. If not neccesary to use table, just say no data needed. 
+        2. Recommendations for data usage in implementation and example how can we use it in python. If not neccesary to use table, just say no data needed.""",
         agent=data_agent,
         tools=[analysis_tools],
         context=[requirement_task]
     )
     
-    researcher_sklearn_task = Task(
-        description="""
-        Determine if the requirements need to or can use scikit-learn or not. 
-        If not, just skip this step.
-        If yes, Research scikit-learn implementation details based on PREVIOUSLY IDENTIFIED REQUIREMENTS using the Search Technical Documentation tool.
-        
-        Context: Use the output from the requirements analysis task as your foundation.
-        
-        Steps:
-        1. For each technical component previously identified in the requirements:
-        - Use the Search Technical Documentation tool with:
-            - query: Component name and key technical terms from requirements
-            - doc_type: "technical_docs"
-            - tech_stack: "sklearn"
-        2. Map each scikit-learn implementation pattern directly to the original requirements""",
-        expected_output="""
-        scikit-learn requirements' implementation code in python""",
+    tech_research_task = Task(
+        description="""Based on requirements:
+            1. If ML needed: Research scikit-learn implementation
+            2. Design Streamlit UI components
+            3. Identify additional Python libraries needed
+            
+        Search technical docs one at a time with:
+            - ML components: tech_stack='sklearn'
+            - UI components: tech_stack='streamlit'""",
         agent=researcher_agent,
-        context=[requirement_task],
-        tools=[create_search_tools(snowpark_session)[1]]
-        )
-    
-    researcher_streamlit_task = Task(
-        description="""Research Streamlit implementation details based on REQUIREMENTS using the Search Technical Documentation tool.
-        
-        Context: Use outputs from both previous requirements and scikit-learn research tasks (if available).
-        
-        Steps:
-        1. For each UI component needed to fulfill the original requirements:
-        - Use the Search Technical Documentation tool with:
-            - query: Component requirements and sklearn integration points
-            - doc_type: "technical_docs"
-            - tech_stack: "streamlit"
-        2. Ensure UI patterns align with both business requirements and implementation (sklearn if necesseary)""",
         expected_output="""
-        Streamlit's UI implementation code that fulfill the requirements and tech stack""",
-        agent=researcher_agent,
-        context=[requirement_task, data_analysis_task, researcher_sklearn_task],
-        tools=[create_search_tools(snowpark_session)[1]]
-        )
+        Output only a complete Python/streamlit/scikit-learn implementation code.""",
+        tools=[create_search_tools(snowpark_session)[1]],
+        context=[requirement_task, data_analysis_task]
+    )
     
     coder_task = Task(
         description="""Generate Python implementation based on ALL PREVIOUS FINDINGS.
@@ -155,12 +130,12 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         1. Review all previous task outputs to ensure complete requirement coverage
         2. Implement each component in python and streamlit""",
         expected_output="""
-        Output only a complete Python/streamlit implementation code. No need to add anything other than python code""",
+        Output only a complete Python/streamlit implementation code. No need to add explanation or anything other than python code""",
         agent=coder_agent,
-        context=[requirement_task, data_analysis_task, researcher_sklearn_task, researcher_streamlit_task]
+        context=[requirement_task, data_analysis_task, tech_research_task]
         )
     
-    tasks = [requirement_task, data_analysis_task, researcher_sklearn_task, researcher_streamlit_task, coder_task]
+    tasks = [requirement_task, data_analysis_task, tech_research_task, coder_task]
     
     # Create crew
     crew = Crew(

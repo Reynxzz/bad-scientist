@@ -57,7 +57,7 @@ class CrewSnowflakeLLM(LLM):
         self,
         session: Session,
         model_name: str = "mistral-large2",
-        temperature: float = 0.7,
+        temperature: float = 0.5,
         max_tokens: Optional[int] = None,
         **kwargs
     ):

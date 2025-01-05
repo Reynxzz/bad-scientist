@@ -88,7 +88,7 @@ def main():
                         
                         if st.button("Generate Another App"):
                             st.session_state.is_generating = False
-                            st.experimental_rerun()
+                            st.rerun()
                         
                 except Exception as e:
                     st.error(f"An error occurred: {str(e)}")

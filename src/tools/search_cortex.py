@@ -173,9 +173,9 @@ class CortexSearchTechnicalTool(BaseTool):
         ])
         
         prompt = f"""
-        Based on the following {tech_stack} documentation, provide implementation guidance.
+        Based on the following {tech_stack} documentation, provide code implementation guidance.
 
-        Context:
+        Documentation:
         {context}
 
         Question: {query}
@@ -183,7 +183,7 @@ class CortexSearchTechnicalTool(BaseTool):
         
         response = self._session.sql(
             "SELECT snowflake.cortex.complete(?, ?)",
-            params=("mistral-large", prompt)
+            params=("mistral-large2", prompt)
         ).collect()[0][0]
 
         print("Technical Tool Response:", response)

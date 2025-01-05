@@ -160,7 +160,8 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         expected_output="""
         Output only a complete Python/streamlit implementation code. No need to add explaination or anything other than python code""",
         agent=coder_agent,
-        context=[requirement_task, data_analysis_task, researcher_sklearn_task, researcher_streamlit_task]
+        context=[requirement_task, data_analysis_task, researcher_sklearn_task, researcher_streamlit_task],
+        allow_code_execution=True
         )
     
     tasks = [requirement_task, data_analysis_task, researcher_sklearn_task, researcher_streamlit_task, coder_task]

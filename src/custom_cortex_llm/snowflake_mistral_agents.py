@@ -51,7 +51,7 @@ class SnowflakeCortexLLM(CustomLLM):
             if content:
                 formatted.append(f"{role.capitalize()}: {content}")
         return "\n".join(formatted)
-x
+    
 class CrewSnowflakeLLM(LLM):
     def __init__(
         self,

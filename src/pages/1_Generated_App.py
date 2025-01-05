@@ -3,6 +3,11 @@ import sys
 from pathlib import Path
 import importlib.util
 
+st.set_page_config(
+    page_title="Bad Scientist - Generated App",
+    page_icon="🧪"
+)
+
 def load_and_run_generated_code(code_string: str):
     """
     Safely loads and runs the generated codes in the current Streamlit context.

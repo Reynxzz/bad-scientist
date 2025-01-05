@@ -1,3 +1,4 @@
+# src/agents/crew.py
 from typing import Optional
 from crewai import Crew, Task, Process, LLM
 from langchain_openai import ChatOpenAI
@@ -8,7 +9,7 @@ from agents.requirements import RequirementAgent
 from agents.researcher import ResearcherAgent
 from agents.data_analyst import DataAnalysisAgent
 from agents.coder import CoderAgent
-from tools.search_cortex import create_search_tools, DocumentProcessor, DocumentType
+from tools.search_cortex import CortexSearchRequirementsTool, DocumentProcessor, DocumentType
 from tools.get_snowflake_tables import SnowflakeTableTool
 from custom_cortex_llm.snowflake_mistral_agents import CrewSnowflakeLLM
 
@@ -51,13 +52,14 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
     # llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
 
     # Create search tools
-    search_tools = create_search_tools(snowpark_session)
-    analysis_tools = SnowflakeTableTool(snowpark_session)
+    search_req_tool = CortexSearchRequirementsTool(snowpark_session, result_as_answer=True)
+    search_tech_tools = CortexSearchRequirementsTool(snowpark_session, result_as_answer=True)
+    analysis_tools = SnowflakeTableTool(snowpark_session, result_as_answer=True)
 
     # Initialize agents
-    requirement_agent = RequirementAgent(llm, search_tools)
+    requirement_agent = RequirementAgent(llm, [search_req_tool])
     data_agent = DataAnalysisAgent(llm, [analysis_tools])    
-    researcher_agent = ResearcherAgent(llm, search_tools)
+    researcher_agent = ResearcherAgent(llm, [search_tech_tools])
     coder_agent = CoderAgent(llm)
     # validator_agent = ValidatorAgent(llm)
     
@@ -83,7 +85,7 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         expected_output="""
         Detailed list of technical components and requirements to implement using Python only""",
         agent=requirement_agent,
-        tools=[create_search_tools(snowpark_session)[0]]
+        tools=[search_req_tool]
         )
     
     data_analysis_task = Task(
@@ -124,7 +126,7 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         scikit-learn requirements' implementation code in python. If not neccessary to use scikit-learn, just say this requirements dont need scikit-learn.""",
         agent=researcher_agent,
         context=[requirement_task],
-        tools=[create_search_tools(snowpark_session)[1]]
+        tools=[search_tech_tools]
         )
     
     researcher_streamlit_task = Task(
@@ -144,7 +146,7 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         Streamlit's UI implementation code that fulfill the requirements and tech stack.""",
         agent=researcher_agent,
         context=[requirement_task, data_analysis_task, researcher_sklearn_task],
-        tools=[create_search_tools(snowpark_session)[1]]
+        tools=[search_tech_tools]
         )
     
     coder_task = Task(
@@ -156,7 +158,7 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         1. Review all previous task outputs to ensure complete requirement coverage
         2. Implement each component in python and streamlit""",
         expected_output="""
-        Output only a complete Python/streamlit implementation code. No need to add anything other than python code""",
+        Output only a complete Python/streamlit implementation code. No need to add explaination or anything other than python code""",
         agent=coder_agent,
         context=[requirement_task, data_analysis_task, researcher_sklearn_task, researcher_streamlit_task]
         )

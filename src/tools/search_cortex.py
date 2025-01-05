@@ -67,37 +67,33 @@ class SearchResult(BaseModel):
     }
 
 class SearchOutput(BaseModel):
-    """Output schema for document search."""
-    results: List[SearchResult] = Field(description="List of search results")
+    """Output schema for document search with LLM processing."""
+    context: str = Field(description="Combined search results context")
+    response: str = Field(description="LLM-generated response based on the context")
 
     model_config = {
         "json_schema_extra": {
             "examples": [{
-                "results": [
-                    {"doc_text": "Sample document text", "source": "requirements.txt"}
-                ]
+                "context": "Combined document context",
+                "response": "LLM-generated answer"
             }]
         }
     }
 
 class CortexSearchRequirementsTool(BaseTool):
-    """Tool for searching through business requirements documents."""
     name: str = "Search Requirements Documents"
-    description: str = "Search through business requirements and project documentation"
+    description: str = "Search through business requirements and get LLM-processed answers"
     args_schema: Type[BaseModel] = ReqSearchInput
     return_schema: Type[BaseModel] = SearchOutput
     
-    # Use private attributes for session and root
-    _session: Session = PrivateAttr()
-    _root: Root = PrivateAttr()
-    
-    def __init__(self, snowpark_session: Session):
+    def __init__(self, snowpark_session: Session, result_as_answer: bool = False):
         super().__init__()
         self._session = snowpark_session
         self._root = Root(self._session)
+        self.result_as_answer = result_as_answer
 
     def _run(self, query: str, doc_type: str = "requirements") -> SearchOutput:
-        """Run the search on requirements documents."""
+        """Run the search and process results with LLM."""
         service_name = f"{DocumentType.REQUIREMENTS.value}_search_svc"
         search_service = (
             self._root
@@ -112,32 +108,45 @@ class CortexSearchRequirementsTool(BaseTool):
             limit=5
         )
         
-        search_results = [
-            SearchResult(doc_text=r['doc_text'], source=r['source'])
+        # Combine search results into context
+        context = "\n\n".join([
+            f"Source: {r['source']}\nContent: {r['doc_text']}"
             for r in results.results
-        ]
+        ])
         
-        return SearchOutput(results=search_results)
+        prompt = f"""
+        Based on the following context, extract and analyze the key technical requirements.
+        Make it short and clear in less than 50 words.
+
+        Context:
+        {context}
+
+        Question: {query}
+        """
+        
+        response = self._session.sql(
+            "SELECT snowflake.cortex.complete(?, ?)",
+            params=("mistral-large2", prompt)
+        ).collect()[0][0]
+
+        print("Requirement Tool Response:", response)
+
+        return response
 
 class CortexSearchTechnicalTool(BaseTool):
-    """Tool for searching through technical documentation."""
     name: str = "Search Technical Documentation"
-    description: str = """Search through technical documentation and implementation guides.
-    Specify tech_stack as 'streamlit' or 'sklearn' to search the corresponding documentation."""
+    description: str = """Search through technical documentation and get implementation guidance."""
     args_schema: Type[BaseModel] = SearchInput
     return_schema: Type[BaseModel] = SearchOutput
 
-    _session: Session = PrivateAttr()
-    _root: Root = PrivateAttr()
-
-    def __init__(self, snowpark_session: Session):
+    def __init__(self, snowpark_session: Session, result_as_answer: bool = False):
         super().__init__()
         self._session = snowpark_session
         self._root = Root(self._session)
+        self.result_as_answer = result_as_answer
 
     def _run(self, query: str, doc_type: str = "technical_docs", tech_stack: Optional[str] = None) -> SearchOutput:
-        """Run the search on technical documentation."""
-        # Determine which service to use based on tech_stack
+        """Run the search and process results with LLM."""
         if tech_stack == TechStack.STREAMLIT:
             service_name = f"{DocumentType.STREAMLIT_DOCS.value}_search_svc"
         elif tech_stack == TechStack.SKLEARN:
@@ -158,15 +167,28 @@ class CortexSearchTechnicalTool(BaseTool):
             limit=5
         )
         
-        search_results = [
-            SearchResult(
-                doc_text=r['doc_text'],
-                source=tech_stack  # Use tech_stack as source for tracking
-            )
+        context = "\n\n".join([
+            f"Content: {r['doc_text']}"
             for r in results.results
-        ]
+        ])
         
-        return SearchOutput(results=search_results)
+        prompt = f"""
+        Based on the following {tech_stack} documentation, provide implementation guidance.
+
+        Context:
+        {context}
+
+        Question: {query}
+        """
+        
+        response = self._session.sql(
+            "SELECT snowflake.cortex.complete(?, ?)",
+            params=("mistral-large", prompt)
+        ).collect()[0][0]
+
+        print("Technical Tool Response:", response)
+
+        return response
 
 class DocumentProcessor:
     def __init__(self, snowpark_session: Session):
@@ -269,6 +291,6 @@ class DocumentProcessor:
 def create_search_tools(snowpark_session: Session) -> List[BaseTool]:
     """Create CrewAI tools for document search"""
     return [
-        CortexSearchRequirementsTool(snowpark_session),
-        CortexSearchTechnicalTool(snowpark_session)
+        CortexSearchRequirementsTool(snowpark_session)(result_as_answer=True),
+        CortexSearchTechnicalTool(snowpark_session)(result_as_answer=True)
     ]

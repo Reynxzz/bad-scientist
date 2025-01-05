@@ -1,85 +1,96 @@
+from typing import Type, List
+from crewai.tools import BaseTool
+from pydantic import BaseModel, Field
 from snowflake.snowpark.session import Session
-from pydantic import BaseModel, Field, PrivateAttr
-from crewai_tools.tools.base_tool import BaseTool
-from typing import List, Type
-import pandas as pd
 
-class TableInfoInput(BaseModel):
-    """Input schema for table information search."""
+class SnowflakeTableInput(BaseModel):
+    """Input schema for table search."""
     query: str = Field(description="The search query to find relevant tables")
-    
-    model_config = {
-        "json_schema_extra": {
-            "examples": [{"query": "customer transaction data with timestamps"}]
-        }
-    }
-
-class TableInfo(BaseModel):
-    """Schema for table information."""
-    table_name: str = Field(description="Name of the table")
-    columns: List[str] = Field(description="List of column names")
-    sample_data: str = Field(description="Sample data from the table in string format")
-
-class TableInfoOutput(BaseModel):
-    """Output schema for table information search."""
-    tables: List[TableInfo] = Field(description="List of relevant tables and their information")
 
 class SnowflakeTableTool(BaseTool):
-    """Tool for searching and analyzing Snowflake tables."""
     name: str = "Search Snowflake Tables"
-    description: str = "Search through available Snowflake tables and analyze their structure and content"
-    args_schema: Type[BaseModel] = TableInfoInput
+    description: str = """Search available Snowflake tables and their structures.
+    Provides information about relevant tables and their columns for implementation."""
+    args_schema: Type[BaseModel] = SnowflakeTableInput
     
-    _session: Session = PrivateAttr()
-    
-    def __init__(self, snowpark_session: Session):
+    def __init__(self, snowpark_session: Session, result_as_answer: bool = False):
         super().__init__()
         self._session = snowpark_session
-    
-    def _run(self, query: str, **kwargs) -> dict:
-        """Search for relevant tables based on the query."""
-        try:
-            # Get list of all tables in current database and schema
-            tables_df = self._session.sql("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = CURRENT_SCHEMA()
-            """).collect()
-            
-            relevant_tables = []
-            for table_row in tables_df:
-                table_name = table_row['TABLE_NAME']
-                
-                # Get column information
-                columns_df = self._session.sql(f"""
-                    SELECT column_name, data_type 
-                    FROM information_schema.columns 
-                    WHERE table_name = '{table_name}'
-                """).collect()
-                
-                columns = [row['COLUMN_NAME'] for row in columns_df]
-                
-                # Get sample data
-                sample_data = self._session.sql(f"""
-                    SELECT * FROM {table_name} LIMIT 1
-                """).collect()
-                
-                sample_str = pd.DataFrame(sample_data).to_string()
-                
-                relevant_tables.append({
-                    "table_name": table_name,
-                    "columns": columns,
-                    "sample_data": sample_str
-                })
-            
-            return {"tables": relevant_tables}
-            
-        except Exception as e:
-            print(f"Error in SnowflakeTableTool: {str(e)}")
-            return {"tables": []}
+        self.result_as_answer = result_as_answer
 
-    def _parse_input(self, query: str) -> str:
-        """Parse and validate the input."""
-        if isinstance(query, dict) and 'query' in query:
-            return query['query']
-        return query
+    def _run(self, query: str) -> str:
+        """Search for relevant tables and summarize with LLM."""
+        # Get tables info
+        tables_info = self._session.sql("""
+            SELECT 
+                table_name,
+                table_type,
+                comment
+            FROM information_schema.tables 
+            WHERE table_schema = CURRENT_SCHEMA()
+        """).collect()
+
+        # Get columns info for all tables
+        columns_info = self._session.sql("""
+            SELECT 
+                table_name,
+                column_name,
+                data_type,
+                is_nullable,
+                comment
+            FROM information_schema.columns
+            WHERE table_schema = CURRENT_SCHEMA()
+            ORDER BY table_name, ordinal_position
+        """).collect()
+
+        # Format table information
+        context_parts = []
+        
+        for table in tables_info:
+            table_name = table['TABLE_NAME']
+            table_comment = table['COMMENT'] if table['COMMENT'] else 'No description available'
+            
+            # Get columns for this table
+            table_columns = [
+                col for col in columns_info 
+                if col['TABLE_NAME'] == table_name
+            ]
+            
+            columns_text = "\n".join([
+                f"- {col['COLUMN_NAME']} ({col['DATA_TYPE']}){'[nullable]' if col['IS_NULLABLE'] == 'YES' else ''}: {col['COMMENT'] if col['COMMENT'] else 'No description'}"
+                for col in table_columns
+            ])
+            
+            context_parts.append(f"""
+Table: {table_name}
+Description: {table_comment}
+Columns:
+{columns_text}
+""")
+
+        context = "\n\n".join(context_parts)
+        
+        # Generate LLM summary
+        prompt = f"""
+        Based on the following Snowflake tables information, recommend which tables and columns would be most relevant for the given query.
+        Make it short and clear in less than 50 words for each table suggested.
+
+        Available Tables Information:
+        {context}
+
+        Query: {query}
+
+        Please provide:
+        1. Most relevant tables for this query
+        2. Key columns that could be useful
+        3. Brief explanation of how these could be used
+        """
+        
+        response = self._session.sql(
+            "SELECT snowflake.cortex.complete(?, ?)",
+            params=("mistral-large2", prompt)
+        ).collect()[0][0]
+
+        print("Snowflake Tool Response:", response)
+
+        return response

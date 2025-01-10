@@ -4,10 +4,10 @@ import tempfile
 import os
 from agents.crew import create_crew
 
-st.set_page_config(
-    page_title="Bad Scientist",
-    page_icon="🧪",
-)
+# st.set_page_config(
+#     page_title="Bad Scientist",
+#     page_icon="🧪",
+# )
 
 def init_session_state():
     """Initialize session state variables"""

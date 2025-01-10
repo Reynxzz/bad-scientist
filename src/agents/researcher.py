@@ -18,7 +18,8 @@ class ResearcherAgent(Agent):
             implementation patterns.""",
             llm=llm,
             tools=tools,
-            verbose=True
+            verbose=True,
+            memory=True
         )
         
     def research_implementation(self, requirements: RequirementAnalysis) -> TechnicalSpec:

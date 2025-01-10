@@ -10,7 +10,16 @@ from tools.get_snowflake_tables import SnowflakeTableTool
 from custom_cortex_llm.snowflake_mistral_agents import CrewSnowflakeLLM
 
 def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = None):
-    """Create and configure the agent crew"""
+    """Create and configure the agent crew for text-to-Streamlit app generation
+    
+    Args:
+        prompt (str): User's input prompt describing desired Streamlit app
+        docs_uploaded (bool): Whether additional requirement documents were uploaded
+        docs_path (Optional[str]): Path to uploaded requirement documents
+        
+    Returns:
+        Crew: Configured CrewAI instance with sequential task pipeline
+    """
     from snowflake.snowpark.session import Session
     from dotenv import load_dotenv
     
@@ -29,6 +38,7 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
     
     snowpark_session = Session.builder.configs(connection_params).create()
 
+    # Initialize LLM and tools
     llm = CrewSnowflakeLLM(
         session=snowpark_session,
         model_name="mistral-large2",
@@ -39,112 +49,161 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
     search_tech_tools = CortexSearchTechnicalTool(snowpark_session, result_as_answer=True)
     analysis_tools = SnowflakeTableTool(snowpark_session, result_as_answer=True)
 
+    # Initialize agents
     requirement_agent = RequirementAgent(llm, [search_req_tool])
     data_agent = DataAnalysisAgent(llm, [analysis_tools])    
     researcher_agent = ResearcherAgent(llm, [search_tech_tools])
     coder_agent = CoderAgent(llm)
     
+    # Process uploaded documents if available
     if docs_path:
         doc_processor = DocumentProcessor(snowpark_session)
         doc_processor.process_document(docs_path, DocumentType.REQUIREMENTS)
     
+    # Task 1: Requirements Analysis
     requirement_task = Task(
-        description=f"""Analyze the business requirements input prompt and document using the Search Requirements Documents tool.
-        Input: {prompt}.
-        docs_uploaded = {docs_uploaded}
-        
-        Steps:
-        If docs_uploaded is FALSE, no need to use the tool, just analyze  technical components to implement using Python only from the input prompt.
-        If docs_uploaded is TRUE:
-            1. Use the Search Requirements Documents tool to query relevant requirements with:
-            - query: Extract key phrases from the prompt
-            - doc_type: "requirements" (you can only use this parameter to use the tools)
-            2. Analyze and extract key technical components to implement using Python only from the search results""",
-        expected_output="""
-        Detailed list of technical components and requirements to implement using Python only""",
+        description=f"""Extract and analyze technical requirements for Streamlit app implementation.
+
+        Input: {prompt}
+        Documents uploaded: {docs_uploaded}
+
+        Instructions:
+        1. If documents are uploaded (docs_uploaded=True):
+        - Use the Search Requirements Documents tool with relevant keywords from the prompt
+        - Use doc_type="requirements" for the search
+        - Extract technical requirements from search results
+        2. If no documents (docs_uploaded=False):
+        - Analyze the input prompt directly
+        3. For all cases:
+        - Focus ONLY on Python-implementable components
+        - Identify specific Streamlit UI elements needed
+        - List data processing/analysis requirements
+        - Note any integration requirements (e.g., file uploads, APIs)
+        - Specify any computational or algorithmic needs""",
+        expected_output="""Provide a structured output with:
+        1. Core Technical Requirements:
+        - List of required Streamlit UI components
+        - Data processing/analysis needs
+        - Integration requirements
+        2. Implementation Constraints:
+        - Required Python libraries
+        - Performance considerations
+        - User interaction flows""",
         agent=requirement_agent,
         tools=[search_req_tool]
-        )
+    )
     
+    # Task 2: Data Analysis
     data_analysis_task = Task(
-        description="""Determine if the requirements need to use available database or not. 
-        If not, just skip this step. No need to use tools.
-        If yes, analyze available Snowflake tables for implementation.
+        description="""Evaluate and map Snowflake data requirements for the application.
 
-        Steps:
-        1. Review the requirements from the previous task
-        2. Use the 'Search Snowflake Tables' tool to find relevant tables by providing a search query
-           Example: you can search with query="Find tables related to rides and drivers"
-        3. Analyze the returned table structures and sample data
-        4. Map the available tables and fields to the specific requirements""",
-        expected_output="""If there Snowflake data needed or can be used:
-        1. Detailed mapping between business requirements and available data fields. Don't make up any table names or columns that are not available. If not neccesary to use table, just say no data needed. 
-        2. Recommendations for data usage in implementation and example how can we use it in python. If not neccesary to use table, just say no data needed.""",
+        Instructions:
+        1. Review technical requirements from previous task
+        2. Determine if Snowflake data access is needed:
+        - If NO: Skip to output with "No Snowflake data required"
+        - If YES: Continue with steps 3-5
+        3. Use 'Search Snowflake Tables' tool to identify relevant tables:
+        - Craft specific search queries based on requirements
+        - Example: query="Find tables related to customer transactions"
+        4. For each identified table:
+        - Validate column availability against requirements
+        - Check data types and constraints
+        5. Document exact table and column names for implementation""",
+        expected_output="""Provide either:
+        1. "No Snowflake data required" statement OR
+        2. Detailed data mapping:
+        - Exact table and column names
+        - SQL queries for data access
+        - Python code examples for data integration""",
         agent=data_agent,
         tools=[analysis_tools],
         context=[requirement_task]
     )
     
+    # Task 3: Reference App Research
     researcher_reference_app_task = Task(
-        description="""
-        Find existing streamlit app as your reference and inspiration to build streamlit app based on REQUIREMENTS needed. 
-        
-        Context: Use the output from the requirements analysis and data analysis task as your foundation.
-        
-        Steps:
-        1. For each technical component previously identified in the requirements:
-        - Use the `search_tech_tools` tool with:
-            - query: Component name and key technical terms from requirements
-            - doc_type: "technical_docs"
-            - tech_stack: "st_ref" (you can only use this parameter to use the tools)
-        2. Generate a streamlit implementation pattern to fulfill app requirements""",
-        expected_output="""
-        Streamlit (and other supporting library) implementation code in python based on requirements and existing streamlit app reference.""",
+        description="""Research existing Streamlit implementations for reference.
+
+        Instructions:
+        1. For each technical component from requirements:
+        - Use search_tech_tools with:
+            - doc_type="technical_docs"
+            - tech_stack="st_ref"
+        - Search for similar implementations
+        2. Analyze found references for:
+        - UI patterns and layouts
+        - Data handling approaches
+        - User interaction patterns
+        3. Map reference implementations to current requirements
+        4. Identify best practices and optimization opportunities""",
+        expected_output="""Provide:
+        1. Relevant code patterns for each requirement
+        2. Streamlit-specific implementation details
+        3. Performance optimization suggestions
+        4. Error handling patterns""",
         agent=researcher_agent,
         context=[requirement_task, data_analysis_task],
         tools=[search_tech_tools]
-        )
+    )
     
+    # Task 4: Streamlit Documentation Validation
     researcher_streamlit_task = Task(
-        description="""Research Streamlit implementation details using the `search_tech_tools` and validate previous code based on latest streamlit documentations.
-        
-        Context: Use outputs from previous requirements, data analysis (if available), and reference app research tasks.
-        
-        Steps:
-        1. For each UI component needed to fulfill the original requirements:
-        - Use the `search_tech_tools` tool to search latest streamlit documentation with:
-            - query: Component requirements and sklearn integration points
-            - doc_type: "technical_docs" (you can only use this parameter to use the tools)
-            - tech_stack: "streamlit" (you can only use this parameter to use the tools)
-        2. Ensure UI patterns align with both business requirements and latest streamlit documentation implementation.""",
-        expected_output="""
-        Streamlit's UI implementation code that fulfill the requirements and current streamlit documentation.""",
+        description="""Validate implementation patterns against current Streamlit documentation.
+
+        Instructions:
+        1. For each UI component and feature:
+        - Use search_tech_tools with:
+            - doc_type="technical_docs"
+            - tech_stack="streamlit"
+        - Verify latest Streamlit usage
+        - Check for deprecated features
+        3. Validate data display components
+        4. Verify file handling methods""",
+        expected_output="""Provide:
+        1. Validated Streamlit component usage
+        2. Current best practices
+        3. Required import statements""",
         agent=researcher_agent,
         context=[requirement_task, data_analysis_task, researcher_reference_app_task],
         tools=[search_tech_tools]
-        )
+    )
     
+    # Task 5: Code Implementation
     coder_task = Task(
-        description="""Generate Python implementation based on ALL PREVIOUS FINDINGS.
-        
-        Context: Use outputs from requirements analysis, data analysis, reference app research, and Streamlit research tasks as guidance.
-        
-        Steps:
-        1. Review all previous task outputs to ensure complete requirement coverage
-        2. Implement each component in python and streamlit. 
-        Please note that the expected output is runnable streamlit app that users just can run it directly, don't use example or dummy data if Snowflake table are needed.
-        Obtained and assume all secrets and credentials there in .env file.""",
-        expected_output="""
-        Output only a complete Python/streamlit implementation runnable and working code directly. No need to add explaination or anything other than python code.""",
+        description="""Generate complete, production-ready Streamlit application code.
+
+        Instructions:
+        1. Implement all components using validated patterns
+        2. Include proper error handling for:
+        - Data loading/processing
+        - User inputs
+        - API calls
+        - File operations
+        3. Implement consistent state management
+        4. Add input validation
+        5. Include performance optimizations
+        6. Use Snowflake connection from .env if required
+
+        Notes:
+        - Code must be immediately runnable
+        - Use actual Snowflake tables (no dummy data)
+        - Assume credentials in .env file
+        - Include all necessary imports""",
+        expected_output="""Provide:
+        1. Complete, runnable 1 Page ONLY Python/Streamlit code
+        2. All required import statements
+        3. Properly structured main() function. Don't use 'st.set_page_config' to prevent error
+        4. Clear code organization
+        5. Error handling implementation
+        6. No need for code explaination, just the code itself""",
         agent=coder_agent,
-        context=[requirement_task, data_analysis_task, researcher_reference_app_task, researcher_streamlit_task],
-        )
+        context=[requirement_task, data_analysis_task, researcher_reference_app_task, researcher_streamlit_task]
+    )
     
-    tasks = [requirement_task, data_analysis_task, researcher_reference_app_task, researcher_streamlit_task, coder_task]
-    
+    # Configure and return crew
     crew = Crew(
         agents=[requirement_agent, data_agent, researcher_agent, coder_agent],
-        tasks=tasks,
+        tasks=[requirement_task, data_analysis_task, researcher_reference_app_task, researcher_streamlit_task, coder_task],
         process=Process.sequential,
         verbose=True
     )

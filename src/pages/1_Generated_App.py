@@ -1,19 +1,44 @@
 import streamlit as st
-import sys
-from pathlib import Path
+import re
 import importlib.util
 
 st.set_page_config(
-    page_title="Bad Scientist - Generated App",
+    page_title="Generated Apps",
     page_icon="🧪"
 )
+
+def extract_python_code(text: str) -> str:
+    """
+    Extracts Python code from markdown code blocks.
+    Handles variations in fence styles and whitespace.
+    
+    Args:
+        text (str): Text containing markdown code blocks
+        
+    Returns:
+        str: Extracted Python code with proper whitespace
+    """
+    # Pattern matches:
+    # 1. ```python or ``` python (optional whitespace)
+    # 2. Code content (non-greedy match)
+    # 3. Closing ``` fence
+    pattern = r'```\s*python\s*(.*?)\s*```'
+    
+    # Find all matches using re.DOTALL to match across lines
+    matches = re.findall(pattern, text, re.DOTALL)
+    
+    if not matches:
+        return text.strip()
+        
+    return matches[0].strip()
 
 def load_and_run_generated_code(code_string: str):
     """
     Safely loads and runs the generated codes in the current Streamlit context.
     """
     try:
-        code_string = code_string.replace('```python', '').replace('```', '').strip()
+        code_string = extract_python_code(code_string)
+        code_string = code_string.replace('st.set_page_config(', '#')
         spec = importlib.util.spec_from_loader(
             "generated_module", 
             loader=None
@@ -32,6 +57,7 @@ def load_and_run_generated_code(code_string: str):
         st.exception(e)
 
 def main():
+    
     st.title("Generated Application")
     
     if st.session_state.get('generated_code') is None:
@@ -69,7 +95,7 @@ def main():
             # Final Implementation
             with st.expander("Final Implementation", expanded=False):
                 st.subheader("Generated Code")
-                st.code(st.session_state.generated_code, language="python")
+                st.markdown(st.session_state.generated_code)
 
 if __name__ == "__main__":
     main()

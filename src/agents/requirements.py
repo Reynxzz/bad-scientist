@@ -16,7 +16,8 @@ class RequirementAgent(Agent):
             needs into actionable technical specifications to implement with python.""",
             llm=llm,
             tools=tools,
-            verbose=True
+            verbose=True,
+            memory=True
         )
         
     def analyze_requirements(self, prompt: str) -> RequirementAnalysis:

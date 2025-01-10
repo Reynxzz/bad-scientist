@@ -13,6 +13,7 @@ class CoderAgent(Agent):
             You have extensive experience in writing clean, efficient, and maintainable python code.""",
             llm=llm,
             verbose=True,
+            memory=True
             # allow_code_execution=True
 
         )

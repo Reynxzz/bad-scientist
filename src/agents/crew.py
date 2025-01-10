@@ -85,64 +85,62 @@ def create_crew(prompt: str, docs_uploaded: bool, docs_path: Optional[str] = Non
         context=[requirement_task]
     )
     
-    researcher_sklearn_task = Task(
+    researcher_reference_app_task = Task(
         description="""
-        Determine if the requirements need to use scikit-learn or not. 
-        If not, just skip this step. No need to use any tools.
-        If yes, Research scikit-learn implementation details based on PREVIOUSLY IDENTIFIED REQUIREMENTS using the Search Technical Documentation tool.
+        Find existing streamlit app as your reference and inspiration to build streamlit app based on REQUIREMENTS needed. 
         
-        Context: Use the output from the requirements analysis task as your foundation.
+        Context: Use the output from the requirements analysis and data analysis task as your foundation.
         
         Steps:
         1. For each technical component previously identified in the requirements:
-        - Use the Search Technical Documentation tool with:
+        - Use the `search_tech_tools` tool with:
             - query: Component name and key technical terms from requirements
             - doc_type: "technical_docs"
-            - tech_stack: "sklearn" (you can only use this parameter to use the tools)
-        2. Map each scikit-learn implementation pattern directly to the original requirements""",
+            - tech_stack: "st_ref" (you can only use this parameter to use the tools)
+        2. Generate a streamlit implementation pattern to fulfill app requirements""",
         expected_output="""
-        scikit-learn requirements' implementation code in python. If not neccessary to use scikit-learn, just say this requirements dont need scikit-learn.""",
+        Streamlit (and other supporting library) implementation code in python based on requirements and existing streamlit app reference.""",
         agent=researcher_agent,
         context=[requirement_task, data_analysis_task],
         tools=[search_tech_tools]
         )
     
     researcher_streamlit_task = Task(
-        description="""Research Streamlit implementation details using the `search_tech_tools`.
+        description="""Research Streamlit implementation details using the `search_tech_tools` and validate previous code based on latest streamlit documentations.
         
-        Context: Use outputs from previous requirements and scikit-learn research tasks (if available).
+        Context: Use outputs from previous requirements, data analysis (if available), and reference app research tasks.
         
         Steps:
         1. For each UI component needed to fulfill the original requirements:
-        - Use the Search Technical Documentation tool with:
+        - Use the `search_tech_tools` tool to search latest streamlit documentation with:
             - query: Component requirements and sklearn integration points
             - doc_type: "technical_docs" (you can only use this parameter to use the tools)
             - tech_stack: "streamlit" (you can only use this parameter to use the tools)
-        2. Ensure UI patterns align with both business requirements and implementation (sklearn if necesseary)
-        3. If requirements need some common python library to run the code (other than streamlit e.g. PyPDF, etc.), Provide the implementation code by your own knowledge""",
+        2. Ensure UI patterns align with both business requirements and latest streamlit documentation implementation.""",
         expected_output="""
-        Streamlit's UI implementation code that fulfill the requirements and tech stack.""",
+        Streamlit's UI implementation code that fulfill the requirements and current streamlit documentation.""",
         agent=researcher_agent,
-        context=[requirement_task, data_analysis_task, researcher_sklearn_task],
+        context=[requirement_task, data_analysis_task, researcher_reference_app_task],
         tools=[search_tech_tools]
         )
     
     coder_task = Task(
         description="""Generate Python implementation based on ALL PREVIOUS FINDINGS.
         
-        Context: Use outputs from requirements analysis, data analysis, sklearn research, and Streamlit research tasks as guidance.
+        Context: Use outputs from requirements analysis, data analysis, reference app research, and Streamlit research tasks as guidance.
         
         Steps:
         1. Review all previous task outputs to ensure complete requirement coverage
-        2. Implement each component in python and streamlit""",
+        2. Implement each component in python and streamlit. 
+        Please note that the expected output is runnable streamlit app that users just can run it directly, don't use example or dummy data if Snowflake table are needed.
+        Obtained and assume all secrets and credentials there in .env file.""",
         expected_output="""
-        Output only a complete Python/streamlit implementation code. No need to add explaination or anything other than python code""",
+        Output only a complete Python/streamlit implementation runnable and working code directly. No need to add explaination or anything other than python code.""",
         agent=coder_agent,
-        context=[requirement_task, data_analysis_task, researcher_sklearn_task, researcher_streamlit_task],
-        allow_code_execution=True
+        context=[requirement_task, data_analysis_task, researcher_reference_app_task, researcher_streamlit_task],
         )
     
-    tasks = [requirement_task, data_analysis_task, researcher_sklearn_task, researcher_streamlit_task, coder_task]
+    tasks = [requirement_task, data_analysis_task, researcher_reference_app_task, researcher_streamlit_task, coder_task]
     
     crew = Crew(
         agents=[requirement_agent, data_agent, researcher_agent, coder_agent],

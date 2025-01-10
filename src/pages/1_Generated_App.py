@@ -57,9 +57,9 @@ def main():
                 st.markdown(st.session_state.app_results["data_needed"])
             
             # Scikit-learn Implementation
-            with st.expander("Scikit-learn Implementation", expanded=False):
+            with st.expander("Streamlit App Implementation Based on Reference", expanded=False):
                 st.subheader("Implementation Approach")
-                st.markdown(st.session_state.app_results["sklearn_specs"])
+                st.markdown(st.session_state.app_results["st_ref"])
             
             # Streamlit Integration
             with st.expander("Streamlit Integration", expanded=False):

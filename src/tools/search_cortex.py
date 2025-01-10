@@ -16,12 +16,12 @@ WAREHOUSE = os.getenv("SNOWFLAKE_WAREHOUSE")
 
 class TechStack(str, Enum):
     STREAMLIT = "streamlit"
-    SKLEARN = "sklearn"
+    ST_REF = "st_ref"
 
 class DocumentType(Enum):
     REQUIREMENTS = "req_docs"
-    STREAMLIT_DOCS = "streamlit_docs"
-    SKLEARN_DOCS = "sklearn_docs"
+    STREAMLIT_DOCS = "streamlit_code"
+    ST_REF_DOCS = "streamlit_appgalery"
 
 class ReqSearchInput(BaseModel):
     """Input schema for document search."""
@@ -40,7 +40,7 @@ class SearchInput(BaseModel):
     doc_type: str = Field(description="Type of document to search ('requirements' or 'technical_docs')")
     tech_stack: Optional[TechStack] = Field(
         None, 
-        description="Technology stack to search ('streamlit' or 'sklearn')"
+        description="Technology stack to search ('streamlit' or 'st_ref')"
     )
 
     model_config = {
@@ -149,10 +149,10 @@ class CortexSearchTechnicalTool(BaseTool):
         """Run the search and process results with LLM."""
         if tech_stack == TechStack.STREAMLIT:
             service_name = f"{DocumentType.STREAMLIT_DOCS.value}_search_svc"
-        elif tech_stack == TechStack.SKLEARN:
-            service_name = f"{DocumentType.SKLEARN_DOCS.value}_search_svc"
+        elif tech_stack == TechStack.ST_REF:
+            service_name = f"{DocumentType.ST_REF_DOCS.value}_search_svc"
         else:
-            raise ValueError("tech_stack must be specified as either 'streamlit' or 'sklearn'")
+            raise ValueError("tech_stack must be specified as either 'streamlit' or 'st_ref'")
             
         search_service = (
             self._root

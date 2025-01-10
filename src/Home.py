@@ -62,11 +62,11 @@ def main():
                         
                         requirement_task = crew.tasks[0]
                         data_analysis_task = crew.tasks[1]
-                        sklearn_task = crew.tasks[2]
+                        st_ref_task = crew.tasks[2]
                         streamlit_task = crew.tasks[3]
                         coder_task = crew.tasks[4]
                         
-                        status_text.write("Processing scikit-learn implementation...")
+                        status_text.write("Processing st_ref implementation...")
                         progress_bar.progress(50)
                         
                         status_text.write("Generating Streamlit interface...")
@@ -80,7 +80,7 @@ def main():
                         st.session_state.app_results = {
                             "requirements": requirement_task.output.raw,
                             "data_needed": data_analysis_task.output.raw,
-                            "sklearn_specs": sklearn_task.output.raw,
+                            "st_ref": st_ref_task.output.raw,
                             "streamlit_specs": streamlit_task.output.raw,
                         }
                         

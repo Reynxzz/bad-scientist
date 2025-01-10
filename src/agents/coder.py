@@ -12,7 +12,9 @@ class CoderAgent(Agent):
             backstory="""Expert programmer specialized in implementing technical solutions. 
             You have extensive experience in writing clean, efficient, and maintainable python code.""",
             llm=llm,
-            verbose=True
+            verbose=True,
+            # allow_code_execution=True
+
         )
         
     def generate_code(self, tech_spec: TechnicalSpec) -> str:

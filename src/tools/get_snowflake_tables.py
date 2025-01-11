@@ -87,6 +87,8 @@ class SnowflakeTableTool(BaseTool):
         1. Most relevant tables for this query
         2. Key columns that could be useful
         3. Brief explanation of how these could be used in streamlit with Snowflake connector, give example code.
+
+        If no related/relevant tables needed or can be usec. Just simply response: "No Snowflake data required".
         """
         
         response = self._session.sql(

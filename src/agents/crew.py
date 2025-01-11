@@ -149,30 +149,15 @@ class StreamlitAppGenerationFlow(Flow):
             logger.error(f"Error in analyze_data_needs: {str(e)}")
             raise
 
-    @router(analyze_data_needs)
-    def determine_research_path(self):
-        """Route to appropriate research path based on data analysis"""
-        logger.debug("Determining research path")
-        try:
-            if "No Snowflake data required" in str(self.result.data_analysis):
-                logger.debug("Selected UI research path")
-                return "ui_research"
-            logger.debug("Selected data research path")
-            return "data_research"
-        except Exception as e:
-            logger.error(f"Error in determine_research_path: {str(e)}")
-            raise
-
-    @listen("data_research")
+    @listen(analyze_data_needs)
     def research_data_patterns(self, data_analysis):
-        """Research data handling patterns"""
-        logger.debug("Starting data patterns research")
+        """Research data analysis patterns"""
+        logger.debug("Starting data analysis patterns research")
         try:
             task = Task(
-                description=f"""Research optimal data analysis and visualization patterns in Streamlit and make sure the Snowflake integration based on: {data_analysis}. 
-                You can use using 'search_tech_tool' tools. 
-                To see streamlit reference app as guidance, use 'st_ref' on tech_stack parameter.
-                To see streamlit docs in general, use 'streamlit' on tech_stack parameter.""",
+                description=f"""Research existing snowflake data analysis and visualization patterns in Streamlit and make sure the Snowflake integration based on 
+                - data needed: {data_analysis} and requirements.
+                You can use using 'search_tech_tool' tools to see streamlit reference app as guidance, use 'st_ref' on tech_stack parameter.""",          
                 expected_output="Snowflake in Streamlit Data integration patterns, example code, and best practices",
                 agent=self.researcher_agent
             )
@@ -185,34 +170,18 @@ class StreamlitAppGenerationFlow(Flow):
             logger.error(f"Error in research_data_patterns: {str(e)}")
             raise
 
-    @listen("ui_research")
-    def research_ui_patterns(self, requirements):
-        """Research UI implementation patterns"""
-        logger.debug("Starting UI patterns research")
-        try:
-            task = Task(
-                description=f"""Research Streamlit app inspiration to make app based on this requirements: {requirements}.
-                You can use 'search_tech_tool' and pass 'st_ref' on tech_stack parameter tools to find best practices on Streamlit""",
-                expected_output="UI implementation reference/inspiration, example code and best practices",
-                agent=self.researcher_agent
-            )
-            patterns = task.agent.execute_task(task)
-            logger.debug(f"UI patterns result: {patterns}")
-            
-            self.result.reference_patterns["ui"] = patterns
-            return patterns
-        except Exception as e:
-            logger.error(f"Error in research_ui_patterns: {str(e)}")
-            raise
-
-    @listen(or_("research_data_patterns", "research_ui_patterns"))
+    @listen(research_data_patterns)
     def validate_streamlit_components(self, patterns):
         """Validate Streamlit component usage"""
         logger.debug("Starting component validation")
         try:
             task = Task(
-                description=f"Validate Streamlit implementation patterns using 'search_tech_tool' tools to search streamlit documentation: {patterns}",
-                expected_output="Validated Streamlit component usage and best practices",
+                description=f"""Validate Streamlit implementation code using 'search_tech_tool' (pass 'streamlit' as tech_stack parameter) tools to search streamlit 
+                documentation to make sure it is using latest syntax and best practice.
+                
+                Validate this:
+                {patterns}""",
+                expected_output="Validated Streamlit code component usage and best practices to fulfill the requirements align with streamlit latest documentation",
                 agent=self.researcher_agent
             )
             components = task.agent.execute_task(task)

@@ -1,3 +1,4 @@
+# crew.py
 from typing import Optional
 from pydantic import BaseModel
 from crewai import Task, Flow
@@ -85,9 +86,22 @@ class StreamlitAppGenerationFlow(Flow):
             
             task = Task(
                 description=f"""Extract and analyze technical requirements for Streamlit app implementation.
+
                 Input: {self.prompt}
-                Documents uploaded: {self.docs_uploaded}""",
-                expected_output="""Core technical requirements and implementation constraints""",
+                Documents uploaded: {self.docs_uploaded}
+
+                Instructions:
+                1. If documents are uploaded (docs_uploaded=True):
+                - Use the Search Requirements Documents tool with relevant keywords from the prompt
+                - Use doc_type="requirements" for the search
+                - Extract technical requirements from search results
+                2. If no documents (docs_uploaded=False):
+                - Analyze the input prompt directly
+                3. For all cases:
+                - Focus ONLY on Python-implementable components
+                - List possible data needed and processing/analysis requirements
+                - Identify specific Streamlit UI elements needed""",
+                expected_output="""Core technical requirements, data needed, and implementation constraints""",
                 agent=self.requirement_agent
             )
             
@@ -107,8 +121,23 @@ class StreamlitAppGenerationFlow(Flow):
         logger.debug("Starting data needs analysis")
         try:
             task = Task(
-                description=f"Evaluate and map Snowflake data requirements based on: {requirements}",
-                expected_output="Data mapping or No Snowflake data required statement",
+                description=f"""Evaluate and map Snowflake data requirements based on: {requirements}
+                Evaluate and map Snowflake data requirements for the application.
+
+                Instructions:
+                1. Review technical requirements from previous task
+                2. Determine if Snowflake data access is needed:
+                - If NO: Skip to output with "No Snowflake data required"
+                - If YES: Continue with steps 3-5
+                3. Use 'Search Snowflake Tables' tool to identify relevant tables:
+                - Craft specific search queries based on requirements
+                - Example: query="Find tables related to customer transactions""",
+                expected_output="""Provide either:
+                1. "No Snowflake data required" statement OR
+                2. Detailed data mapping:
+                - Exact table and column names
+                - SQL queries for data access
+                - Python code examples for data integration""",
                 agent=self.data_agent
             )
             result = task.agent.execute_task(task)
@@ -141,7 +170,7 @@ class StreamlitAppGenerationFlow(Flow):
         try:
             task = Task(
                 description=f"Research optimal data handling patterns based on: {data_analysis}",
-                expected_output="Data integration patterns and best practices",
+                expected_output="Snowflake in Streamlit Data integration patterns and best practices",
                 agent=self.researcher_agent
             )
             patterns = task.agent.execute_task(task)
@@ -178,8 +207,8 @@ class StreamlitAppGenerationFlow(Flow):
         logger.debug("Starting component validation")
         try:
             task = Task(
-                description=f"Validate implementation patterns: {patterns}",
-                expected_output="Validated component usage and best practices",
+                description=f"Validate Streamlit implementation patterns: {patterns}",
+                expected_output="Validated Streamlit component usage and best practices",
                 agent=self.researcher_agent
             )
             components = task.agent.execute_task(task)
@@ -197,11 +226,12 @@ class StreamlitAppGenerationFlow(Flow):
         logger.debug("Starting code generation")
         try:
             task = Task(
-                description=f"""Generate complete Streamlit application code based on:
+                description=f"""Generate 1 page complete Streamlit application code based on:
                 Components: {components}
-                Requirements: {self.result.requirements}
-                Data Analysis: {self.result.data_analysis}""",
-                expected_output="Complete, runnable Python/Streamlit code",
+                Requirements: {self.result.requirements}, please also provide error handler since you will generate a production ready streamlit code.
+                Data Analysis: {self.result.data_analysis}, make sure all data type, case-sensitive value are concerned.
+                NOTE: if there streamlit/Snowflake authentication/credentials needed, assume it already stored in .env file""",
+                expected_output="Complete, 1-page runnable Python/Streamlit code. Assume all auth/credentials already stored in .env",
                 agent=self.coder_agent
             )
             code = task.agent.execute_task(task)

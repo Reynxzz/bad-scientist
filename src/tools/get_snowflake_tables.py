@@ -1,3 +1,4 @@
+# get_snowflake_tables.py
 from typing import Type, List
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
@@ -20,6 +21,8 @@ class SnowflakeTableTool(BaseTool):
 
     def _run(self, query: str) -> str:
         """Search for relevant tables and summarize with LLM."""
+
+        print(f"`SnowflakeTableTool` called with query input: {query}")
         # Get tables info
         tables_info = self._session.sql("""
             SELECT 
@@ -62,11 +65,11 @@ class SnowflakeTableTool(BaseTool):
             ])
             
             context_parts.append(f"""
-Table: {table_name}
-Description: {table_comment}
-Columns:
-{columns_text}
-""")
+            Table: {table_name}
+            Description: {table_comment}
+            Columns:
+            {columns_text}
+            """)
 
         context = "\n\n".join(context_parts)
         
@@ -83,7 +86,7 @@ Columns:
         Please provide:
         1. Most relevant tables for this query
         2. Key columns that could be useful
-        3. Brief explanation of how these could be used
+        3. Brief explanation of how these could be used in streamlit with Snowflake connector.
         """
         
         response = self._session.sql(

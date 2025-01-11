@@ -1,3 +1,4 @@
+# search_cortex.py
 from snowflake.snowpark.session import Session
 from snowflake.core import Root
 from typing import List, Type, Optional
@@ -37,19 +38,20 @@ class ReqSearchInput(BaseModel):
 class SearchInput(BaseModel):
     """Input schema for document search."""
     query: str = Field(description="The search query to use")
-    doc_type: str = Field(description="Type of document to search ('requirements' or 'technical_docs')")
-    tech_stack: Optional[TechStack] = Field(
-        None, 
+    tech_stack: TechStack = Field(
         description="Technology stack to search ('streamlit' or 'st_ref')"
     )
+    doc_type: str = Field(description="Type of document to search ('requirements' or 'technical_docs')")
+    prev_context: Optional[str] = Field(description="Context from previous task, to learn or improve")
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
                     "query": "authentication flow", 
+                    "tech_stack": "streamlit",
                     "doc_type": "technical_docs",
-                    "tech_stack": "streamlit"
+                    "prev_context": "Initial OAuth implementation in streamlit... ```python  st.session_state ... ```"
                 }
             ]
         }
@@ -94,6 +96,9 @@ class CortexSearchRequirementsTool(BaseTool):
 
     def _run(self, query: str, doc_type: str = "requirements") -> SearchOutput:
         """Run the search and process results with LLM."""
+        
+        print(f"`CortexSearchRequirementsTool` called with query: {query}, doc_type: {doc_type}")
+
         service_name = f"{DocumentType.REQUIREMENTS.value}_search_svc"
         search_service = (
             self._root
@@ -115,7 +120,7 @@ class CortexSearchRequirementsTool(BaseTool):
         ])
         
         prompt = f"""
-        Based on the following context, extract and analyze the key technical requirements.
+        Based on the following context, extract and analyze the key technical requirements (for MVP).
         Make it short and clear in less than 50 words.
 
         Context:
@@ -145,8 +150,11 @@ class CortexSearchTechnicalTool(BaseTool):
         self._root = Root(self._session)
         self.result_as_answer = result_as_answer
 
-    def _run(self, query: str, doc_type: str = "technical_docs", tech_stack: Optional[str] = None) -> SearchOutput:
+    def _run(self, query: str, tech_stack: str, doc_type: str = "technical_docs", prev_context: Optional[str] = None) -> SearchOutput:
         """Run the search and process results with LLM."""
+
+        print(f"`CortexSearchTechnicalTool` called with query: {query}, doc_type: {doc_type}, tech_stack: {tech_stack}")
+
         if tech_stack == TechStack.STREAMLIT:
             service_name = f"{DocumentType.STREAMLIT_DOCS.value}_search_svc"
         elif tech_stack == TechStack.ST_REF:
@@ -173,10 +181,14 @@ class CortexSearchTechnicalTool(BaseTool):
         ])
         
         prompt = f"""
-        Based on the following {tech_stack} documentation, provide code implementation guidance.
+        Use the following {tech_stack} documentation as guidance, provide code implementation guidance. 
+        If there initial code provided, please validate and improve the code so it align with documentation syntax and best practive.
 
         Documentation:
         {context}
+
+        Initial Code (to align):
+        {prev_context}
 
         Question: {query}
         """
@@ -191,6 +203,7 @@ class CortexSearchTechnicalTool(BaseTool):
         return response
 
 class DocumentProcessor:
+
     def __init__(self, snowpark_session: Session):
         self.session = snowpark_session
         self.root = Root(self.session)

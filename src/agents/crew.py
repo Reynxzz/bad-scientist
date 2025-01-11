@@ -169,7 +169,10 @@ class StreamlitAppGenerationFlow(Flow):
         logger.debug("Starting data patterns research")
         try:
             task = Task(
-                description=f"Research optimal data handling patterns based on: {data_analysis}",
+                description=f"""Research optimal data handling or analysis patterns in Streamlit and make sure the Snowflake integration based on: {data_analysis}. 
+                You can use using 'search_tech_tool' tools. 
+                To see streamlit reference app as guidance, use 'st_ref' on tech_stack parameter.
+                To see streamlit docs in general, use 'streamlit' on tech_stack parameter.""",
                 expected_output="Snowflake in Streamlit Data integration patterns and best practices",
                 agent=self.researcher_agent
             )
@@ -183,12 +186,13 @@ class StreamlitAppGenerationFlow(Flow):
             raise
 
     @listen("ui_research")
-    def research_ui_patterns(self, _):
+    def research_ui_patterns(self, requirements):
         """Research UI implementation patterns"""
         logger.debug("Starting UI patterns research")
         try:
             task = Task(
-                description="Research Streamlit UI patterns and best practices",
+                description=f"""Research Streamlit UI patterns as reference and inspiration to make streamlit app based on this requirements: {requirements}.
+                You can use 'search_tech_tool' and pass 'streamlit_appgalery' on tech_stach parameter tools to find best practices how to work with data in general on Streamlit""",
                 expected_output="UI implementation patterns and best practices",
                 agent=self.researcher_agent
             )
@@ -207,7 +211,7 @@ class StreamlitAppGenerationFlow(Flow):
         logger.debug("Starting component validation")
         try:
             task = Task(
-                description=f"Validate Streamlit implementation patterns: {patterns}",
+                description=f"Validate Streamlit implementation patterns using 'search_tech_tool' tools to search streamlit documentation: {patterns}",
                 expected_output="Validated Streamlit component usage and best practices",
                 agent=self.researcher_agent
             )
@@ -227,9 +231,13 @@ class StreamlitAppGenerationFlow(Flow):
         try:
             task = Task(
                 description=f"""Generate 1 page complete Streamlit application code based on:
-                Components: {components}
-                Requirements: {self.result.requirements}, please also provide error handler since you will generate a production ready streamlit code.
-                Data Analysis: {self.result.data_analysis}, make sure all data type, case-sensitive value are concerned.
+                Streamlit Components used: {components}
+                Requirements: {self.result.requirements}, please also provide error handler since you will generate a production ready streamlit code. Do not use any dummy or example data/function/component.
+                Data Analysis: {self.result.data_analysis}. 
+                Make sure no error when accessing or analysing data:
+                - avoid case-sensitive error (example: when selecting value please use lower() function), 
+                - avoid data type error (example: make sure to convert datetime to string etc.),
+                - avoid any common error that will make the app don't work.
                 NOTE: if there streamlit/Snowflake authentication/credentials needed, assume it already stored in .env file""",
                 expected_output="Complete, 1-page runnable Python/Streamlit code. Assume all auth/credentials already stored in .env",
                 agent=self.coder_agent

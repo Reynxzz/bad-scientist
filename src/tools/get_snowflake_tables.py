@@ -86,7 +86,7 @@ class SnowflakeTableTool(BaseTool):
         Please provide:
         1. Most relevant tables for this query
         2. Key columns that could be useful
-        3. Brief explanation of how these could be used in streamlit with Snowflake connector.
+        3. Brief explanation of how these could be used in streamlit with Snowflake connector, give example code.
         """
         
         response = self._session.sql(

@@ -169,11 +169,11 @@ class StreamlitAppGenerationFlow(Flow):
         logger.debug("Starting data patterns research")
         try:
             task = Task(
-                description=f"""Research optimal data handling or analysis patterns in Streamlit and make sure the Snowflake integration based on: {data_analysis}. 
+                description=f"""Research optimal data analysis and visualization patterns in Streamlit and make sure the Snowflake integration based on: {data_analysis}. 
                 You can use using 'search_tech_tool' tools. 
                 To see streamlit reference app as guidance, use 'st_ref' on tech_stack parameter.
                 To see streamlit docs in general, use 'streamlit' on tech_stack parameter.""",
-                expected_output="Snowflake in Streamlit Data integration patterns and best practices",
+                expected_output="Snowflake in Streamlit Data integration patterns, example code, and best practices",
                 agent=self.researcher_agent
             )
             patterns = task.agent.execute_task(task)
@@ -191,9 +191,9 @@ class StreamlitAppGenerationFlow(Flow):
         logger.debug("Starting UI patterns research")
         try:
             task = Task(
-                description=f"""Research Streamlit UI patterns as reference and inspiration to make streamlit app based on this requirements: {requirements}.
-                You can use 'search_tech_tool' and pass 'streamlit_appgalery' on tech_stach parameter tools to find best practices how to work with data in general on Streamlit""",
-                expected_output="UI implementation patterns and best practices",
+                description=f"""Research Streamlit app inspiration to make app based on this requirements: {requirements}.
+                You can use 'search_tech_tool' and pass 'st_ref' on tech_stack parameter tools to find best practices on Streamlit""",
+                expected_output="UI implementation reference/inspiration, example code and best practices",
                 agent=self.researcher_agent
             )
             patterns = task.agent.execute_task(task)
@@ -237,9 +237,11 @@ class StreamlitAppGenerationFlow(Flow):
                 Make sure no error when accessing or analysing data:
                 - avoid case-sensitive error (example: when selecting value please use lower() function), 
                 - avoid data type error (example: make sure to convert datetime to string etc.),
+                - avoid unclean data error (example: make sure to fillna() null values, etc.),
+                - Do not make any columns or tables other than I mentioned earlier.
                 - avoid any common error that will make the app don't work.
                 NOTE: if there streamlit/Snowflake authentication/credentials needed, assume it already stored in .env file""",
-                expected_output="Complete, 1-page runnable Python/Streamlit code. Assume all auth/credentials already stored in .env",
+                expected_output="Complete, 1-page runnable error-free production-ready Python/Streamlit code. Assume all auth/credentials already stored in .env. Please always prioritize to use error handler",
                 agent=self.coder_agent
             )
             code = task.agent.execute_task(task)

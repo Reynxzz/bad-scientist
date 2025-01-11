@@ -72,61 +72,41 @@ def main():
                     docs_path = None
                     docs_uploaded = False
                     
-                    with st.spinner("Initializing generation process..."):
-                        if uploaded_file:
+                    if uploaded_file:
                             with tempfile.NamedTemporaryFile(delete=False, suffix=Path(uploaded_file.name).suffix) as tmp_file:
                                 tmp_file.write(uploaded_file.getvalue())
                                 docs_path = tmp_file.name
                                 docs_uploaded = True
                                 logger.debug(f"Uploaded file saved to: {docs_path}")
+
+                                                
+                    with st.spinner("Generating app..."):
+                        # Execute flow
+                        flow_result = asyncio.run(run_flow(prompt, docs_uploaded, docs_path))
                         
-                        # Setup progress indicators
-                        progress_bar = st.progress(0)
-                        status_text = st.empty()
-                        debug_container = st.empty()
+                        if not flow_result:
+                            raise ValueError("Flow execution failed - no result returned")
                         
-                        update_progress(status_text, progress_bar, "Starting generation process...", 0)
+                        logger.debug(f"Flow result: {flow_result}")
+                        st.session_state.debug_messages.append(f"Flow result type: {type(flow_result)}")
                         
-                        with st.spinner("Generating app..."):
-                            # Execute flow
-                            flow_result = asyncio.run(run_flow(prompt, docs_uploaded, docs_path))
-                            
-                            if not flow_result:
-                                raise ValueError("Flow execution failed - no result returned")
-                            
-                            logger.debug(f"Flow result: {flow_result}")
-                            st.session_state.debug_messages.append(f"Flow result type: {type(flow_result)}")
-                            
-                            # Update progress as tasks complete
-                            if safe_get_attr(flow_result, 'requirements'):
-                                update_progress(status_text, progress_bar, "Analyzing requirements...", 25)
-                            
-                            if safe_get_attr(flow_result, 'data_analysis'):
-                                update_progress(status_text, progress_bar, "Processing data requirements...", 50)
-                            
-                            if safe_get_attr(flow_result, 'reference_patterns'):
-                                update_progress(status_text, progress_bar, "Researching implementation patterns...", 75)
-                            
-                            if safe_get_attr(flow_result, 'final_code'):
-                                update_progress(status_text, progress_bar, "Generation complete!", 100)
-                            
-                            # Store results in session state
-                            st.session_state.generated_code = safe_get_attr(flow_result, 'final_code')
-                            st.session_state.app_results = {
-                                "requirements": safe_get_attr(flow_result, 'requirements'),
-                                "data_analysis": safe_get_attr(flow_result, 'data_analysis'),
-                                "reference_patterns": safe_get_attr(flow_result, 'reference_patterns', {}),
-                                "streamlit_components": safe_get_attr(flow_result, 'streamlit_components')
-                            }
-                            
-                            if not st.session_state.generated_code:
-                                raise ValueError("No code was generated")
-                            
-                            st.success("Generation complete! Navigate to the Generated App page to view and run your application.")
-                            
-                            if st.button("Generate Another App"):
-                                st.session_state.is_generating = False
-                                st.rerun()
+                        # Store results in session state
+                        st.session_state.generated_code = safe_get_attr(flow_result, 'final_code')
+                        st.session_state.app_results = {
+                            "requirements": safe_get_attr(flow_result, 'requirements'),
+                            "data_analysis": safe_get_attr(flow_result, 'data_analysis'),
+                            "reference_patterns": safe_get_attr(flow_result, 'reference_patterns', {}),
+                            "streamlit_components": safe_get_attr(flow_result, 'streamlit_components')
+                        }
+                        
+                        if not st.session_state.generated_code:
+                            raise ValueError("No code was generated")
+                        
+                        st.success("Generation complete! Navigate to the Generated App page to view and run your application.")
+                        
+                        if st.button("Generate Another App"):
+                            st.session_state.is_generating = False
+                            st.rerun()
                             
                 except Exception as e:
                     st.error(f"An error occurred: {str(e)}")

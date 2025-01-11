@@ -121,7 +121,7 @@ class CortexSearchRequirementsTool(BaseTool):
         
         prompt = f"""
         Based on the following context, extract and analyze the key technical requirements (for MVP).
-        Make it short and clear in less than 50 words.
+        Make it short and clear in less than 50 words. If possible, generate a template streamlit app to fulfil the requirement.
 
         Context:
         {context}
@@ -182,7 +182,7 @@ class CortexSearchTechnicalTool(BaseTool):
         
         prompt = f"""
         Use the following {tech_stack} documentation as guidance, provide code implementation guidance. 
-        If there initial code provided, please validate and improve the code so it align with documentation syntax and best practive.
+        If there initial code provided, please validate and improve the code so it align with documentation syntax and best practice.
 
         Documentation:
         {context}

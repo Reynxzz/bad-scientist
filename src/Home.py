@@ -43,13 +43,6 @@ def update_progress(status_text, progress_bar, message, progress):
     logger.debug(f"Progress update: {progress}% - {message}")
     st.session_state.debug_messages.append(f"Progress: {progress}% - {message}")
 
-def display_debug_info():
-    """Display debug information in the UI"""
-    with st.expander("Debug Information", expanded=False):
-        st.write("Debug Messages:")
-        for msg in st.session_state.debug_messages:
-            st.text(msg)
-
 def safe_get_attr(obj, attr, default=None):
     """Safely get attribute from object with default value"""
     return getattr(obj, attr, default) if obj else default
@@ -130,7 +123,6 @@ def main():
                                 raise ValueError("No code was generated")
                             
                             st.success("Generation complete! Navigate to the Generated App page to view and run your application.")
-                            display_debug_info()
                             
                             if st.button("Generate Another App"):
                                 st.session_state.is_generating = False
@@ -141,7 +133,6 @@ def main():
                     st.exception(e)
                     logger.exception("Error during app generation")
                     st.session_state.is_generating = False
-                    display_debug_info()
                 finally:
                     # Cleanup
                     if docs_path:
@@ -155,7 +146,6 @@ def main():
                 st.error("Please enter a business idea prompt")
     else:
         st.success("Generation is complete! Navigate to the **Generated App** page to view and run your application.")
-        display_debug_info()
         if st.button("Generate Another App"):
             st.session_state.is_generating = False
             st.rerun()

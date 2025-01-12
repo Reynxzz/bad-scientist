@@ -3,11 +3,12 @@ from litellm import CustomLLM, completion
 from litellm.types.utils import ModelResponse
 from snowflake.snowpark.session import Session
 from crewai import LLM
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Union
 import time
+from config import MODEL_NAME, MODEL_TEMPERATURE
 
 class SnowflakeCortexLLM(CustomLLM):
-    def __init__(self, session: Session, model_name: str = "mistral-large2"):
+    def __init__(self, session: Session, model_name: str = MODEL_NAME):
         super().__init__()
         self.session = session
         self.model_name = model_name
@@ -16,7 +17,7 @@ class SnowflakeCortexLLM(CustomLLM):
         try:
             prompt = self._format_messages(messages)
             
-            # Call Snowflake
+            # Call Snowflake Cortex
             response = self.session.sql(
                 "SELECT snowflake.cortex.complete(?, ?)",
                 params=(self.model_name, prompt)
@@ -53,11 +54,24 @@ class SnowflakeCortexLLM(CustomLLM):
         return "\n".join(formatted)
     
 class CrewSnowflakeLLM(LLM):
+    """
+    Integration for using Snowflake's Cortex LLM with CrewAI agents via LiteLLM.
+        - SnowflakeCortexLLM: Custom LLM implementation for Snowflake's Cortex
+        - CrewSnowflakeLLM: CrewAI-compatible wrapper for SnowflakeCortexLLM
+
+    Example:
+        llm = CrewSnowflakeLLM(
+            session=snowpark_session,
+            model_name="your_model",
+            temperature=0.7
+        )
+        agent = Agent(role="Assistant", llm=llm)
+    """
     def __init__(
         self,
         session: Session,
-        model_name: str = "mistral-large2",
-        temperature: float = 0.5,
+        model_name: str = MODEL_NAME,
+        temperature: float = MODEL_TEMPERATURE,
         max_tokens: Optional[int] = None,
         **kwargs
     ):

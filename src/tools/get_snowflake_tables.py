@@ -1,8 +1,8 @@
-# get_snowflake_tables.py
-from typing import Type, List
+from typing import Type
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 from snowflake.snowpark.session import Session
+from config import MODEL_NAME
 
 class SnowflakeTableInput(BaseModel):
     """Input schema for table search."""
@@ -33,7 +33,6 @@ class SnowflakeTableTool(BaseTool):
             WHERE table_schema = CURRENT_SCHEMA()
         """).collect()
 
-        # Get columns info for all tables
         columns_info = self._session.sql("""
             SELECT 
                 table_name,
@@ -46,14 +45,12 @@ class SnowflakeTableTool(BaseTool):
             ORDER BY table_name, ordinal_position
         """).collect()
 
-        # Format table information
         context_parts = []
         
         for table in tables_info:
             table_name = table['TABLE_NAME']
             table_comment = table['COMMENT'] if table['COMMENT'] else 'No description available'
             
-            # Get columns for this table
             table_columns = [
                 col for col in columns_info 
                 if col['TABLE_NAME'] == table_name
@@ -73,7 +70,6 @@ class SnowflakeTableTool(BaseTool):
 
         context = "\n\n".join(context_parts)
         
-        # Generate LLM summary
         prompt = f"""
         Based on the following Snowflake tables information, recommend which tables and columns would be most relevant for the given query.
         Make it short and clear in less than 50 words for each table suggested.
@@ -85,7 +81,7 @@ class SnowflakeTableTool(BaseTool):
 
         Please provide:
         1. Most relevant tables for this query
-        2. Key columns that could be useful
+        2. Key columns that could be useful, also with data type of this column.
         3. Brief explanation of how these could be used in streamlit with Snowflake connector, give example code.
 
         If no related/relevant tables needed or can be usec. Just simply response: "No Snowflake data required".
@@ -93,7 +89,7 @@ class SnowflakeTableTool(BaseTool):
         
         response = self._session.sql(
             "SELECT snowflake.cortex.complete(?, ?)",
-            params=("mistral-large2", prompt)
+            params=(MODEL_NAME, prompt)
         ).collect()[0][0]
 
         print("Snowflake Tool Response:", response)

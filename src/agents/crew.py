@@ -1,17 +1,16 @@
-# crew.py
 from typing import Optional
 from pydantic import BaseModel
 from crewai import Task, Flow
-import os
+from config import connection_params, MODEL_NAME, MODEL_TEMPERATURE
 from agents.requirements import RequirementAgent
 from agents.researcher import ResearcherAgent
 from agents.data_analyst import DataAnalysisAgent
 from agents.coder import CoderAgent
-from tools.search_cortex import CortexSearchRequirementsTool, CortexSearchTechnicalTool, DocumentProcessor, DocumentType
+from tools.search_cortex import CortexSearchRequirementsTool, CortexSearchTechnicalTool, DocumentType
+from tools.document_processor import DocumentProcessor
 from tools.get_snowflake_tables import SnowflakeTableTool
 from custom_cortex_llm.snowflake_mistral_agents import CrewSnowflakeLLM
 from snowflake.snowpark.session import Session
-from dotenv import load_dotenv
 from crewai.flow.flow import start, listen, router, and_, or_
 import logging
 
@@ -41,23 +40,13 @@ class StreamlitAppGenerationFlow(Flow):
         """Initialize Snowflake, LLM, tools and agents"""
         try:
             logger.debug("Initializing Snowflake connection")
-            load_dotenv()
-            connection_params = {
-                "account": os.getenv("SNOWFLAKE_ACCOUNT"),
-                "user": os.getenv("SNOWFLAKE_USER"),
-                "password": os.getenv("SNOWFLAKE_USER_PASSWORD"),
-                "role": os.getenv("SNOWFLAKE_ROLE"),
-                "database": os.getenv("SNOWFLAKE_DATABASE"),
-                "schema": os.getenv("SNOWFLAKE_SCHEMA"),
-                "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE")
-            }
             self.snowpark_session = Session.builder.configs(connection_params).create()
             
             logger.debug("Initializing LLM")
             self.llm = CrewSnowflakeLLM(
                 session=self.snowpark_session,
-                model_name="mistral-large2",
-                temperature=0.3
+                model_name=MODEL_NAME,
+                temperature=MODEL_TEMPERATURE
             )
             
             logger.debug("Initializing tools")
@@ -128,10 +117,10 @@ class StreamlitAppGenerationFlow(Flow):
                 1. Review technical requirements from previous task
                 2. Determine if Snowflake data access is needed:
                 - If NO: Skip to output with "No Snowflake data required"
-                - If YES: Continue with steps 3-5
+                - If YES: Continue with next steps
                 3. Use 'Search Snowflake Tables' tool to identify relevant tables:
-                - Craft specific search queries based on requirements
-                - Example: query="Find tables related to customer transactions""",
+                - Craft specific search queries based on requirements. Make a very detail query.
+                - Example: query="Find tables related to customer transactions so I can track customer_id, payment method, etc. """,
                 expected_output="""Provide either:
                 1. "No Snowflake data required" statement OR
                 2. Detailed data mapping:
@@ -155,9 +144,11 @@ class StreamlitAppGenerationFlow(Flow):
         logger.debug("Starting data analysis patterns research")
         try:
             task = Task(
-                description=f"""Research existing snowflake data analysis and visualization patterns in Streamlit and make sure the Snowflake integration based on 
+                description=f"""Research existing snowflake data analysis and visualization inspiration in Streamlit App Galery and make sure the Snowflake integration based on 
                 - data needed: {data_analysis} and requirements.
-                You can use using 'search_tech_tool' tools to see streamlit reference app as guidance, use 'st_ref' on tech_stack parameter.""",          
+                You can use using 'search_tech_tool' tools to see streamlit reference app as guidance, use 'st_ref' on tech_stack parameter and query to visualize previously defined data needed.
+                Example query (adjust based on data needed): "How to visualize <DATA_TYPE> in streamlit", etc.
+                """,          
                 expected_output="Snowflake in Streamlit Data integration patterns, example code, and best practices",
                 agent=self.researcher_agent
             )
@@ -199,17 +190,26 @@ class StreamlitAppGenerationFlow(Flow):
         logger.debug("Starting code generation")
         try:
             task = Task(
-                description=f"""Generate 1 page complete Streamlit application code based on:
-                Streamlit Components used: {components}
-                Requirements: {self.result.requirements}, please also provide error handler since you will generate a production ready streamlit code. Do not use any dummy or example data/function/component.
-                Data Analysis: {self.result.data_analysis}. 
-                Make sure no error when accessing or analysing data:
-                - avoid case-sensitive error (example: when selecting value please use lower() function), 
-                - avoid data type error (example: make sure to convert datetime to string etc.),
-                - avoid unclean data error (example: make sure to fillna() null values, etc.),
-                - Do not make any columns or tables other than I mentioned earlier.
-                - avoid any common error that will make the app don't work.
-                NOTE: if there streamlit/Snowflake authentication/credentials needed, assume it already stored in .env file""",
+                description=f"""
+                MAIN TASK: 
+                DO NOT MAKE ANY ASSUMPTION. Generate engaging 1 PAGE complete Streamlit application code based on:
+                1. Fullfill this requirements: {self.result.requirements}, please also provide error handler since you will generate a production ready streamlit code. Do not use any dummy or example data/function/component.
+                2. Data Needed from Snowflake Tables: {self.result.data_analysis}. DO NOT make any columns or tables outside this.
+                3. Streamlit latest syntax for components use: {components}.
+
+                
+                ERROR Handling and Prevention:
+                Make sure there's no error when accessing or analysing data:
+                - AVOID case-sensitive error (example: when selecting value please use lower() function), 
+                - AVOID data type error (example: make sure to convert datetime to string etc.),
+                - AVOID unclean or missing data error (example: make sure to fillna() null values, etc.),
+                - DO NOT make any columns or tables other than I mentioned earlier.
+                - AVOID any common error that will make the app don't work.
+
+                Common error example: 
+                - TypeError, KeyError
+
+                IMPORTANT TO NOTE: if there streamlit/Snowflake authentication/credentials needed, assume it already stored in .env file""",
                 expected_output="Complete, 1-page runnable error-free production-ready Python/Streamlit code. Assume all auth/credentials already stored in .env. Please always prioritize to use error handler",
                 agent=self.coder_agent
             )

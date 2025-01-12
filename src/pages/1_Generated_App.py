@@ -3,6 +3,11 @@ import streamlit as st
 import re
 import importlib.util
 
+st.set_page_config(
+    page_title="Generated App by Bad Scientist",
+    page_icon="🧪",
+)
+
 def init_session_state():
     """Initialize session state variables for the generated app"""
     if 'generated_code' not in st.session_state:
@@ -17,21 +22,18 @@ def extract_python_code(text: str) -> str:
     if not text:
         return ""
     
-    # First try to extract from markdown code blocks
     pattern = r'```\s*python\s*(.*?)\s*```'
     matches = re.findall(pattern, text, re.DOTALL)
     
     if matches:
         return matches[0].strip()
     
-    # If no markdown blocks found, check for ```code``` without language
     pattern = r'```\s*(.*?)\s*```'
     matches = re.findall(pattern, text, re.DOTALL)
     
     if matches:
         return matches[0].strip()
     
-    # If no code blocks found, treat entire text as code
     return text.strip()
 
 def sanitize_code(code_string: str) -> str:
@@ -101,7 +103,6 @@ def create_wrapped_streamlit():
 def load_generated_code(code_string: str):
     """Safely loads and executes the generated code with state preservation."""
     try:
-        # Extract and sanitize code
         code_string = extract_python_code(code_string)
         code_string = sanitize_code(code_string)
         
@@ -109,21 +110,18 @@ def load_generated_code(code_string: str):
             st.error("No valid code found to execute")
             return
         
-        # Create module for code execution
         spec = importlib.util.spec_from_loader(
             "generated_module", 
             loader=None
         )
         module = importlib.util.module_from_spec(spec)
         
-        # Create wrapped streamlit instance
         wrapped_st = create_wrapped_streamlit()
         module.st = wrapped_st
         
         # Execute the code
         exec(code_string, module.__dict__)
         
-        # Run main function if it exists
         if hasattr(module, 'main'):
             module.main()
             
@@ -139,20 +137,20 @@ def display_app_details():
         col1, col2 = st.columns(2)
         
         with col1:
-            with st.expander("Technical Requirements", expanded=True):
+            with st.expander("Technical Requirements", expanded=False):
                 if requirements := st.session_state.app_results.get("requirements"):
                     st.markdown(requirements)
                 else:
                     st.info("No requirements analysis available")
             
-            with st.expander("Data Analysis", expanded=True):
+            with st.expander("Data Analysis", expanded=False):
                 if data_analysis := st.session_state.app_results.get("data_analysis"):
                     st.markdown(data_analysis)
                 else:
                     st.info("No data analysis available")
         
         with col2:
-            with st.expander("Implementation Patterns", expanded=True):
+            with st.expander("Implementation Reference/Patterns", expanded=False):
                 if patterns := st.session_state.app_results.get("reference_patterns"):
                     if isinstance(patterns, dict):
                         for pattern_type, pattern in patterns.items():
@@ -163,18 +161,15 @@ def display_app_details():
                 else:
                     st.info("No implementation patterns available")
             
-            with st.expander("Streamlit Components", expanded=True):
+            with st.expander("Streamlit Components", expanded=False):
                 if components := st.session_state.app_results.get("streamlit_components"):
                     st.markdown(components)
                 else:
                     st.info("No component analysis available")
         
-        with st.expander("Generated Code", expanded=False):
+        with st.expander("Generated Streamlit Code", expanded=True):
             if code := st.session_state.generated_code:
-                if st.button("Copy Code"):
-                    st.code(code, language="python")
-                else:
-                    st.markdown(format_code_for_display(code))
+                st.markdown(format_code_for_display(code))
             else:
                 st.warning("No code has been generated")
 
@@ -185,7 +180,6 @@ def main():
         st.warning("No application has been generated yet. Please go to the Generator page to create an application.")
         return
     
-    # Create tabs
     tab1, tab2 = st.tabs(["Application", "Details & Code"])
     
     with tab1:

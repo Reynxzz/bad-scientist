@@ -1,7 +1,7 @@
 from typing import Optional
 from pydantic import BaseModel
 from crewai import Task, Flow
-from config import connection_params, MODEL_NAME, MODEL_TEMPERATURE
+from config import CONNECTION_PARAMETER, MODEL_NAME, MODEL_TEMPERATURE
 from agents.requirements import RequirementAgent
 from agents.researcher import ResearcherAgent
 from agents.data_analyst import DataAnalysisAgent
@@ -40,7 +40,7 @@ class StreamlitAppGenerationFlow(Flow):
         """Initialize Snowflake, LLM, tools and agents"""
         try:
             logger.debug("Initializing Snowflake connection")
-            self.snowpark_session = Session.builder.configs(connection_params).create()
+            self.snowpark_session = Session.builder.configs(CONNECTION_PARAMETER).create()
             
             logger.debug("Initializing LLM")
             self.llm = CrewSnowflakeLLM(

@@ -4,7 +4,7 @@ from typing import List, Type, Optional
 from pydantic import BaseModel, Field
 from crewai_tools.tools.base_tool import BaseTool
 from enum import Enum
-from config import MODEL_NAME, MODEL_TEMPERATURE
+from config import MODEL_NAME
 
 class TechStack(str, Enum):
     STREAMLIT = "streamlit"

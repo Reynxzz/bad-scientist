@@ -127,38 +127,34 @@ def execute_generated_code():
 def display_app_details():
     """Displays the application details in expandable sections."""
     if st.session_state.get('app_results'):
-        col1, col2 = st.columns(2)
+        with st.expander("Technical Requirements", expanded=False):
+            if requirements := st.session_state.app_results.get("requirements"):
+                st.markdown(requirements)
+            else:
+                st.info("No requirements analysis available")
         
-        with col1:
-            with st.expander("Technical Requirements", expanded=False):
-                if requirements := st.session_state.app_results.get("requirements"):
-                    st.markdown(requirements)
-                else:
-                    st.info("No requirements analysis available")
-            
-            with st.expander("Data Analysis", expanded=False):
-                if data_analysis := st.session_state.app_results.get("data_analysis"):
-                    st.markdown(data_analysis)
-                else:
-                    st.info("No data analysis available")
+        with st.expander("Data Analysis", expanded=False):
+            if data_analysis := st.session_state.app_results.get("data_analysis"):
+                st.markdown(data_analysis)
+            else:
+                st.info("No data analysis available")
         
-        with col2:
-            with st.expander("Implementation Reference/Patterns", expanded=False):
-                if patterns := st.session_state.app_results.get("reference_patterns"):
-                    if isinstance(patterns, dict):
-                        for pattern_type, pattern in patterns.items():
-                            st.markdown(f"### {pattern_type.title()}")
-                            st.markdown(pattern)
-                    else:
-                        st.markdown(patterns)
+        with st.expander("Implementation Reference/Patterns", expanded=False):
+            if patterns := st.session_state.app_results.get("reference_patterns"):
+                if isinstance(patterns, dict):
+                    for pattern_type, pattern in patterns.items():
+                        st.markdown(f"### {pattern_type.title()}")
+                        st.markdown(pattern)
                 else:
-                    st.info("No implementation patterns available")
-            
-            with st.expander("Streamlit Components", expanded=False):
-                if components := st.session_state.app_results.get("streamlit_components"):
-                    st.markdown(components)
-                else:
-                    st.info("No component analysis available")
+                    st.markdown(patterns)
+            else:
+                st.info("No implementation patterns available")
+        
+        with st.expander("Streamlit Components", expanded=False):
+            if components := st.session_state.app_results.get("streamlit_components"):
+                st.markdown(components)
+            else:
+                st.info("No component analysis available")
 
 def code_editor_interface():
     """Provides the code editor interface."""

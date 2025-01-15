@@ -162,27 +162,28 @@ def display_app_details():
 
 def code_editor_interface():
     """Provides the code editor interface."""
-    if st.session_state.edited_code is None and st.session_state.generated_code is not None:
-        st.session_state.edited_code = extract_python_code(st.session_state.generated_code)
+    with st.expander("Code Editor", expanded=True):
+        if st.session_state.edited_code is None and st.session_state.generated_code is not None:
+            st.session_state.edited_code = extract_python_code(st.session_state.generated_code)
 
-    # Code editor
-    st.session_state.edited_code = st_ace(
-        value=st.session_state.edited_code,
-        language="python",
-        theme=st.session_state.editor_theme,
-        key="ace_editor",
-        height=600,
-        font_size=st.session_state.editor_font_size,
-        tab_size=st.session_state.editor_tab_size,
-        wrap=True,
-        auto_update=True,
-        readonly=False,
-        min_lines=20,
-        keybinding=st.session_state.editor_keybinding
-    )
+        # Code editor
+        st.session_state.edited_code = st_ace(
+            value=st.session_state.edited_code,
+            language="python",
+            theme=st.session_state.editor_theme,
+            key="ace_editor",
+            height=600,
+            font_size=st.session_state.editor_font_size,
+            tab_size=st.session_state.editor_tab_size,
+            wrap=True,
+            auto_update=True,
+            readonly=False,
+            min_lines=20,
+            keybinding=st.session_state.editor_keybinding
+        )
 
-    # Run button (just for manual execution/refresh)
-    st.button("Refresh run", use_container_width=True, type="secondary")
+        # Run button (just for manual execution/refresh)
+        st.button("Refresh run", use_container_width=True, type="secondary")
 
 def main():
     init_session_state()

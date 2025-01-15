@@ -1,7 +1,6 @@
-# pages/1_Generated_App.py
 import streamlit as st
 import re
-import importlib.util
+from streamlit_ace import st_ace
 
 st.set_page_config(
     page_title="Generated App by Bad Scientist",
@@ -9,13 +8,22 @@ st.set_page_config(
 )
 
 def init_session_state():
-    """Initialize session state variables for the generated app"""
-    if 'generated_code' not in st.session_state:
-        st.session_state.generated_code = None
-    if 'app_results' not in st.session_state:
-        st.session_state.app_results = None
-    if 'app_state' not in st.session_state:
-        st.session_state.app_state = {}
+    """Initialize session state variables"""
+    defaults = {
+        'generated_code': None,
+        'app_results': None,
+        'edited_code': None,
+        'editor_theme': 'terminal',
+        'editor_keybinding': 'vscode',
+        'editor_font_size': 14,
+        'editor_tab_size': 4,
+        'widget_states': {},
+        'is_first_run': True
+    }
+    
+    for key, default_value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = default_value
 
 def extract_python_code(text: str) -> str:
     """Extracts Python code from markdown code blocks or raw text."""
@@ -24,13 +32,11 @@ def extract_python_code(text: str) -> str:
     
     pattern = r'```\s*python\s*(.*?)\s*```'
     matches = re.findall(pattern, text, re.DOTALL)
-    
     if matches:
         return matches[0].strip()
     
     pattern = r'```\s*(.*?)\s*```'
     matches = re.findall(pattern, text, re.DOTALL)
-    
     if matches:
         return matches[0].strip()
     
@@ -38,101 +44,88 @@ def extract_python_code(text: str) -> str:
 
 def sanitize_code(code_string: str) -> str:
     """Sanitizes the code string for safe execution."""
-    # Remove any page config calls
     code_string = re.sub(
         r'st\.set_page_config\([^)]*\)',
         '# Page config removed',
         code_string
     )
-    
     return code_string.strip()
 
-def format_code_for_display(code: str) -> str:
-    """Formats code for display in markdown."""
-    return f"```python\n{code}\n```"
-
-class StateManager:
-    """Manages state persistence for the generated application."""
+class WrappedStreamlit:
+    """A wrapper for Streamlit that preserves widget states."""
+    
     def __init__(self):
-        self.states = {}
-    
-    def get_state(self, key, default=None):
-        return self.states.get(key, default)
-    
-    def set_state(self, key, value):
-        self.states[key] = value
-
-def create_wrapped_streamlit():
-    """Creates a wrapped version of streamlit that preserves widget states."""
-    state_manager = StateManager()
-    
-    class WrappedStreamlit:
-        @staticmethod
-        def number_input(*args, **kwargs):
-            key = kwargs.get('key', str(args))
-            if 'value' not in kwargs:
-                kwargs['value'] = state_manager.get_state(key, 0.0)
-            value = st.number_input(*args, **kwargs)
-            state_manager.set_state(key, value)
-            return value
-
-        @staticmethod
-        def text_input(*args, **kwargs):
-            key = kwargs.get('key', str(args))
-            if 'value' not in kwargs:
-                kwargs['value'] = state_manager.get_state(key, '')
-            value = st.text_input(*args, **kwargs)
-            state_manager.set_state(key, value)
-            return value
-
-        @staticmethod
-        def selectbox(*args, **kwargs):
-            key = kwargs.get('key', str(args))
-            if 'index' not in kwargs:
-                kwargs['index'] = state_manager.get_state(key, 0)
-            value = st.selectbox(*args, **kwargs)
-            state_manager.set_state(key, args[1].index(value) if args[1] else 0)
-            return value
-
-        def __getattr__(self, name):
-            # Pass through any other Streamlit functions unchanged
-            return getattr(st, name)
-
-    return WrappedStreamlit()
-
-def load_generated_code(code_string: str):
-    """Safely loads and executes the generated code with state preservation."""
-    try:
-        code_string = extract_python_code(code_string)
-        code_string = sanitize_code(code_string)
+        if 'widget_states' not in st.session_state:
+            st.session_state.widget_states = {}
+        self.widget_states = st.session_state.widget_states
         
-        if not code_string:
+    def _get_widget_id(self, name, args, kwargs):
+        """Generate a unique ID for a widget."""
+        key = kwargs.get('key', f"{name}_{str(args)}")
+        return str(key)
+    
+    def _wrap_widget(self, name, *args, **kwargs):
+        """Wrap a Streamlit widget to preserve its state."""
+        widget_id = self._get_widget_id(name, args, kwargs)
+        
+        original_widget = getattr(st, name)
+        
+        if widget_id in self.widget_states:
+            stored_value = self.widget_states[widget_id]
+            if 'value' not in kwargs and 'default_value' not in kwargs:
+                kwargs['value'] = stored_value
+        
+        try:
+            result = original_widget(*args, **kwargs)
+            self.widget_states[widget_id] = result
+            return result
+        except Exception as e:
+            if widget_id in self.widget_states:
+                return self.widget_states[widget_id]
+            raise e
+
+    def __getattr__(self, name):
+        """Handle all Streamlit function calls."""
+        original_attr = getattr(st, name)
+        
+        if callable(original_attr):
+            def wrapped(*args, **kwargs):
+                if name in ['button', 'checkbox', 'number_input', 'text_input', 
+                           'selectbox', 'multiselect', 'slider', 'select_slider',
+                           'date_input', 'time_input', 'text_area', 'radio']:
+                    return self._wrap_widget(name, *args, **kwargs)
+                return original_attr(*args, **kwargs)
+            return wrapped
+        return original_attr
+
+def execute_generated_code():
+    """Execute the generated/edited code while preserving widget states."""
+    if not st.session_state.edited_code:
+        return
+    
+    try:
+        code = sanitize_code(extract_python_code(st.session_state.edited_code))
+        if not code:
             st.error("No valid code found to execute")
             return
         
-        spec = importlib.util.spec_from_loader(
-            "generated_module", 
-            loader=None
-        )
-        module = importlib.util.module_from_spec(spec)
+        wrapped_st = WrappedStreamlit()
+        namespace = {
+            'st': wrapped_st,
+            '__name__': '__main__'
+        }
         
-        wrapped_st = create_wrapped_streamlit()
-        module.st = wrapped_st
+        exec(code, namespace)
         
-        # Execute the code
-        exec(code_string, module.__dict__)
-        
-        if hasattr(module, 'main'):
-            module.main()
+        if 'main' in namespace:
+            namespace['main']()
             
     except Exception as e:
         st.error("Error running generated application")
-        with st.expander("Error Details", expanded=True):
-            st.exception(e)
-            st.code(code_string, language="python")
+        st.exception(e)
 
 def display_app_details():
-    """Displays the application details and code."""
+    """Displays the application details in expandable sections."""
     if st.session_state.get('app_results'):
         col1, col2 = st.columns(2)
         
@@ -166,26 +159,47 @@ def display_app_details():
                     st.markdown(components)
                 else:
                     st.info("No component analysis available")
-        
-        with st.expander("Generated Streamlit Code", expanded=True):
-            if code := st.session_state.generated_code:
-                st.markdown(format_code_for_display(code))
-            else:
-                st.warning("No code has been generated")
+
+def code_editor_interface():
+    """Provides the code editor interface."""
+    if st.session_state.edited_code is None and st.session_state.generated_code is not None:
+        st.session_state.edited_code = extract_python_code(st.session_state.generated_code)
+
+    # Code editor
+    st.session_state.edited_code = st_ace(
+        value=st.session_state.edited_code,
+        language="python",
+        theme=st.session_state.editor_theme,
+        key="ace_editor",
+        height=600,
+        font_size=st.session_state.editor_font_size,
+        tab_size=st.session_state.editor_tab_size,
+        wrap=True,
+        auto_update=True,
+        readonly=False,
+        min_lines=20,
+        keybinding=st.session_state.editor_keybinding
+    )
+
+    # Run button (just for manual execution/refresh)
+    st.button("Refresh run", use_container_width=True, type="secondary")
 
 def main():
     init_session_state()
     
-    if st.session_state.get('generated_code') is None:
+    if st.session_state.generated_code is None:
         st.warning("No application has been generated yet. Please go to the Generator page to create an application.")
         return
     
-    tab1, tab2 = st.tabs(["Application", "Details & Code"])
+    tab1, tab2 = st.tabs(["Application", "Details"])
     
     with tab1:
-        # Load and display the application
-        if st.session_state.generated_code:
-            load_generated_code(st.session_state.generated_code)
+        code_editor_interface()
+        output_container = st.container()
+        with output_container:
+            if st.session_state.edited_code:
+                st.markdown("Generated App (by **Bad Scientist**):")
+                execute_generated_code()
     
     with tab2:
         display_app_details()

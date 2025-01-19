@@ -18,7 +18,9 @@ def init_session_state():
         'editor_font_size': 14,
         'editor_tab_size': 4,
         'widget_states': {},
-        'is_first_run': True
+        'is_first_run': True,
+        'is_executing': False,
+        'execution_requested': False
     }
     
     for key, default_value in defaults.items():
@@ -100,10 +102,15 @@ class WrappedStreamlit:
 
 def execute_generated_code():
     """Execute the generated/edited code while preserving widget states."""
-    if not st.session_state.edited_code:
+    if not st.session_state.edited_code or not st.session_state.execution_requested:
         return
-    
+
+    if st.session_state.is_executing:
+        return
+        
     try:
+        st.session_state.is_executing = True
+        
         code = sanitize_code(extract_python_code(st.session_state.edited_code))
         if not code:
             st.error("No valid code found to execute")
@@ -123,6 +130,9 @@ def execute_generated_code():
     except Exception as e:
         st.error("Error running generated application")
         st.exception(e)
+    finally:
+        st.session_state.is_executing = False
+        st.session_state.execution_requested = False
 
 def display_app_details():
     """Displays the application details in expandable sections."""
@@ -158,7 +168,7 @@ def display_app_details():
 
 def code_editor_interface():
     """Provides the code editor interface."""
-    with st.expander("Code Editor", expanded=True):
+    with st.form("code_editor_form"):
         if st.session_state.edited_code is None and st.session_state.generated_code is not None:
             st.session_state.edited_code = extract_python_code(st.session_state.generated_code)
 
@@ -178,8 +188,10 @@ def code_editor_interface():
             keybinding=st.session_state.editor_keybinding
         )
 
-        # Run button (just for manual execution/refresh)
-        st.button("Refresh run", use_container_width=True, type="secondary")
+        # Run button inside form
+        if st.form_submit_button("Run Code", use_container_width=True, type="primary"):
+            st.session_state.execution_requested = True
+            st.rerun()
 
 def main():
     init_session_state()

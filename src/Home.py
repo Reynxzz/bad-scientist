@@ -56,7 +56,7 @@ def main():
             help="Upload additional documentation to provide more context"
         )
         
-        if st.button("Generate App", type="primary"):
+        if st.button("Generate App", type="primary", key="generate_initial"):
             if prompt:
                 try:
                     st.session_state.is_generating = True
@@ -110,9 +110,9 @@ def main():
                             progress_bar.empty()
                             
                             st.success("Generation complete! Navigate to the Generated App page to view and run your application.")
-                            if st.button("Generate Another App"):
-                                st.session_state.is_generating = False
-                                st.rerun()       
+                            # if st.button("Generate Another App", key="generate_another_success"):
+                            #     st.session_state.is_generating = False
+                            #     st.rerun()       
                                                      
                         except Exception as e:
                             logger.error(f"Error during flow execution: {str(e)}")
@@ -133,14 +133,14 @@ def main():
                             logger.warning(f"Could not remove temporary file: {str(e)}")
                             st.warning(f"Could not remove temporary file: {str(e)}")
                     
-                    if st.button("Generate Another App"):
+                    if st.button("Generate Another App", key="generate_another_finally"):
                         st.session_state.is_generating = False
                         st.rerun()
             else:
                 st.error("Please enter a business idea prompt")
     else:
         st.success("Generation is complete! Navigate to the **Generated App** page to view and run your application.")
-        if st.button("Generate Another App"):
+        if st.button("Generate Another App", key="generate_another_main"):
             st.session_state.is_generating = False
             st.rerun()
 

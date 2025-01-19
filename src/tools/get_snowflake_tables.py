@@ -81,8 +81,8 @@ class SnowflakeTableTool(BaseTool):
 
         Please provide:
         1. Most relevant tables for this query
-        2. Key columns that could be useful, also with data type of this column.
-        3. Brief explanation of how these could be used in streamlit with Snowflake connector, give example code.
+        2. Key columns that could be useful, also with data type of this column. DO NOT MADE UP ANY TABLES/COLUMN OUTSIDE THE PROVIDED CONTEXT.
+        3. Code to be used in streamlit with Snowflake connector (assume credentials are stored in .env).
 
         If no related/relevant tables needed or can be usec. Just simply response: "No Snowflake data required".
         """

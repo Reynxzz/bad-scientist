@@ -117,6 +117,19 @@ class CortexSearchRequirementsTool(BaseTool):
         {context}
 
         Question: {query}
+
+        Technical Requirements Analysis:
+        - Identify all Python-implementable components
+        - List required data sources and processing needs
+        - Specify required Streamlit UI components
+        - Note any performance or scalability requirements
+
+        FORMAT YOUR RESPONSE AS:
+        1. Technical Requirements: [List each requirement]
+        2. Data Requirements: [List data needs]
+        3. UI Components: [List Streamlit elements]
+        4. Integration Needs: [List dependencies]
+        5. Constraints: [List any limitations]
         """
         
         response = self._session.sql(
@@ -171,14 +184,9 @@ class CortexSearchTechnicalTool(BaseTool):
         ])
         
         prompt = f"""
-        Use the following {tech_stack} documentation as guidance, provide code implementation guidance. 
-        If there initial code provided, please validate and improve the code so it align with documentation syntax and best practice.
-
+        Use the following {tech_stack} documentation as guidance, provide code implementation guidance.
         Documentation:
         {context}
-
-        Initial Code (to align):
-        {prev_context}
 
         Question: {query}
         """

@@ -72,7 +72,7 @@ async def execute_streamlit_generation(
         requirement_agent = RequirementAgent(llm, [search_req_tool])
         data_agent = DataAnalysisAgent(llm, [analysis_tool])
         researcher_agent = ResearcherAgent(llm, [search_tech_tool])
-        coder_agent = CoderAgent(llm)
+        # coder_agent = CoderAgent(llm)
 
         # Create Requirements Analysis Crew
         logger.info("Setting up requirements analysis...")
@@ -85,23 +85,10 @@ async def execute_streamlit_generation(
             Additional Documents: {'Yes' if docs_uploaded else 'No'}
 
             TASK STEPS:
-            1. Review Input Sources:
+            Review Input Sources:
                - Analyze the main user prompt
                - If documents are provided, use Search Requirements tool
-               - Search with keywords from prompt using doc_type="requirements"
-
-            2. Technical Requirements Analysis:
-               - Identify all Python-implementable components
-               - List required data sources and processing needs
-               - Specify required Streamlit UI components
-               - Note any performance or scalability requirements
-
-            FORMAT YOUR RESPONSE AS:
-            1. Technical Requirements: [List each requirement]
-            2. Data Requirements: [List data needs]
-            3. UI Components: [List Streamlit elements]
-            4. Integration Needs: [List dependencies]
-            5. Constraints: [List any limitations]
+               - Search with keywords from prompt using the tools with specific parameter doc_type="requirements"
             """,
             expected_output="""A structured breakdown of technical requirements including:
             1. Technical Requirements
@@ -127,65 +114,37 @@ async def execute_streamlit_generation(
         logger.info("Setting up data analysis and research tasks...")
         data_task = Task(
             description=f"""
-            OBJECTIVE: Analyze and map all data requirements to Snowflake data sources.
+            OBJECTIVE: Extract tables needed to fulfill the requirements and call the Snowflake Table Tools by passing the keywords (3-5 keywords).
             
             CONTEXT:
             Technical Requirements: {requirements_result}
             
             TASK STEPS:
-            1. Data Source Analysis:
-               - Review technical requirements
-               - Identify all data needs
-               - Map to Snowflake tables
-
-            2. Table Identification:
-               - For each data requirement, create detailed search
-               - Verify column availability and data types
-               - Document table relationships
-
-            3. Data Access Planning:
-               - Design efficient SQL queries
-               - Plan data transformations
-               - Consider performance optimization
+            1. Before calling the function, decide is the requirements needed data from Snowflake or not. If no related/relevant tables needed or can be usec. Just simply response: "No Snowflake data required".
+            2. Use Snowflake table tools to analyze Snowflake data needed based on requirements. Pass the detailed query to the function.
             """,
             expected_output="""Detailed data mapping including:
             1. Required Tables
             2. Required Columns
-            3. Sample SQL Queries
-            4. Data Transformations
-            5. Performance Considerations""",
+            3. Sample SQL Queries in Streamlit""",
             agent=data_agent
         )
 
         patterns_task = Task(
             description=f"""
-            OBJECTIVE: Research and identify optimal patterns for Streamlit data visualization.
+            OBJECTIVE: Extract Streamlit data visualization component to fulfill the requirements and call the Search Technical Tools by passing the keywords (3-5 keywords) in query and one more parameter, tech_stack = 'st_ref'.
             
             CONTEXT:
             Technical Requirements: {requirements_result}
             
             TASK STEPS:
-            1. Pattern Research:
-               - Research Streamlit visualization components
-               - Identify best practices for similar applications
-               - Study performance optimization patterns
-
-            2. Component Analysis:
-               - Evaluate suitable visualization components
-               - Analyze interaction patterns
-               - Research caching strategies
-
-            3. Integration Patterns:
-               - Study Snowflake-Streamlit integration patterns
-               - Research data loading optimizations
-               - Analyze state management approaches
+            Research Streamlit Data Visualization, Interaction, Snowflake Data Loading and code reference using Search Technical Tools with passing parameter tech_stack = 'st_ref' (only use this parameter for this task)
             """,
             expected_output="""Comprehensive pattern guide including:
             1. Visualization Patterns
             2. Interaction Patterns
             3. Data Loading Patterns
-            4. Performance Patterns
-            5. Code References""",
+            4. Code References""",
             agent=researcher_agent
         )
 
@@ -210,55 +169,54 @@ async def execute_streamlit_generation(
         patterns_result = str(patterns_output.raw)
         logger.info("Parallel tasks complete")
 
-        # Create and execute final code generation crew
-        logger.info("Setting up code generation...")
-        code_task = Task(
-            description=f"""
-            OBJECTIVE: Generate production-ready Streamlit application code.
+        # with open('./agents/streamlit_template.txt', 'r') as file:
+        #     streamlit_template = file.read() 
+        
+
+        code_result = llm.call(f"""
+            OBJECTIVE: Generate production-ready python Streamlit application code based to connect and visualize Snowflake data.
+            Use visualization library like plotly or matplotlib to make engaging data visualization.
             
             INPUTS:
-            1. Requirements: {requirements_result}
-            2. Data Analysis: {data_result}
-            3. Patterns: {patterns_result}
+            Data Analysis: {data_result}
             
-            DEVELOPMENT REQUIREMENTS:
-            1. Code Structure:
-               - Single page application
-               - Clear section organization
-               - Proper error handling
-               - Interactive Widget
+            STEPS:
+            Only outputing PYTHON code, no need any explanation, just the code.
+            Assume all credentials are stored in .env
+        """)
+        # # Create and execute final code generation crew
+        # logger.info("Setting up code generation...")
+        # code_task = Task(
+        #     description=f"""
+        #     OBJECTIVE: Generate production-ready Streamlit application code based on streamlit template.
+            
+        #     INPUTS:
+        #     1. Requirements: {requirements_result}
+        #     2. Data Analysis: {data_result}
+        #     3. Patterns: {patterns_result}
+            
+        #     DEVELOPMENT REQUIREMENTS:
+        #     Use this streamlit app template but modify based on requirements and dataand visualization needed. Assume all credentials are stored in .env
+        #     Streamlit Template: {strealit_template}
+        #     """,
+        #     expected_output="""Complete, production-ready Streamlit application code including:
+        #     1. Import statements
+        #     2. Configuration and setup
+        #     3. Helper functions
+        #     4. Main application code
+        #     5. Error handling implementations""",
+        #     agent=coder_agent
+        # )
 
-            2. Data Handling:
-               - Use only specified Snowflake tables
-               - Implement proper data type conversions
-               - Handle missing data appropriately
-               - Implement caching where appropriate
+        # code_crew = Crew(
+        #     agents=[coder_agent],
+        #     tasks=[code_task]
+        # )
 
-            3. Error Prevention:
-               - Assume all credentials are stored in .env
-               - Add comprehensive error handling
-               - Validate all user inputs
-               - Handle edge cases
-               - Implement proper type checking
-            """,
-            expected_output="""Complete, production-ready Streamlit application code including:
-            1. Import statements
-            2. Configuration and setup
-            3. Helper functions
-            4. Main application code
-            5. Error handling implementations""",
-            agent=coder_agent
-        )
-
-        code_crew = Crew(
-            agents=[coder_agent],
-            tasks=[code_task]
-        )
-
-        logger.info("Starting code generation")
-        code_output = await code_crew.kickoff_async(inputs={})
-        code_result = str(code_output.raw)
-        logger.info("Code generation complete")
+        # logger.info("Starting code generation")
+        # code_output = await code_crew.kickoff_async(inputs={})
+        # code_result = str(code_output.raw)
+        # logger.info("Code generation complete")
 
         # Compile results
         logger.info("Compiling final results")

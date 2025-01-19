@@ -50,7 +50,6 @@ class RAGSQLGenerator:
             .cortex_search_services['sql_query_search_svc']
         )
 
-        # Build search query with context
         search_query = query
         if table_context:
             search_query = f"{query} {table_context}"
@@ -119,13 +118,10 @@ class RAGSQLGenerator:
             question: Natural language question
             table_context: Table/schema information
         """
-        # Retrieve similar examples
         examples = self.retrieve_examples(question, table_context)
         
-        # Create prompt with examples and context
         prompt = self.create_prompt(question, table_context or "", examples)
         
-        # Generate SQL using Cortex Complete
         generated_sql = self.run_cortex_complete(prompt)
         
         return {
@@ -133,7 +129,7 @@ class RAGSQLGenerator:
             'table_context': table_context,
             'generated_sql': generated_sql,
             'examples_used': examples,
-            'prompt_used': prompt  # Including prompt for debugging
+            'prompt_used': prompt
         }
 
 class SnowflakeTableTool(BaseTool):
@@ -158,7 +154,6 @@ class SnowflakeTableTool(BaseTool):
         """Retrieve and organize table and column information."""
         tables_info = {}
         
-        # Get tables
         tables_raw = self._session.sql("""
             SELECT 
                 table_name,
@@ -168,7 +163,6 @@ class SnowflakeTableTool(BaseTool):
             WHERE table_schema = CURRENT_SCHEMA()
         """).collect()
 
-        # Get columns
         columns_raw = self._session.sql("""
             SELECT 
                 table_name,
@@ -181,7 +175,6 @@ class SnowflakeTableTool(BaseTool):
             ORDER BY table_name, ordinal_position
         """).collect()
 
-        # Organize into TableInfo objects
         for table in tables_raw:
             table_name = table['TABLE_NAME']
             tables_info[table_name] = TableInfo(
@@ -190,7 +183,6 @@ class SnowflakeTableTool(BaseTool):
                 columns={}
             )
 
-            # Add columns for this table
             table_columns = [col for col in columns_raw if col['TABLE_NAME'] == table_name]
             for col in table_columns:
                 tables_info[table_name].columns[col['COLUMN_NAME']] = {
@@ -248,17 +240,14 @@ class SnowflakeTableTool(BaseTool):
         """Search for relevant tables and optionally generate SQL query."""
         print(f"`SnowflakeTableTool` called with query: {query}, generate_sql: {generate_sql}")
 
-        # Get tables information
         tables_info = self._get_tables_info()
         tables_context = self._format_table_context(tables_info)
         
-        # Get relevant tables analysis
         tables_analysis = self._get_relevant_tables(query, tables_context)
         
         if "No Snowflake data required" in tables_analysis:
             return tables_analysis
             
-        # Generate SQL if requested and RAG generator is available
         generated_sql = ""
         if generate_sql and self._rag_generator:
             try:

@@ -3,7 +3,6 @@ from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 from snowflake.snowpark.session import Session
 from config import MODEL_NAME
-from dataclasses import dataclass
 from snowflake.core import Root
 
 class MatplotlibInput(BaseModel):
@@ -15,7 +14,7 @@ class MatplotlibInput(BaseModel):
     )
 
 class RAGPythonGenerator:
-    def __init__(self, session: Session, model_name: str = "mistral-large2", num_examples: int = 3):
+    def __init__(self, session: Session, model_name: str = MODEL_NAME, num_examples: int = 3):
         """Initialize the RAG Python generator
         
         Args:
@@ -98,16 +97,12 @@ class RAGPythonGenerator:
             question: Natural language question
             data_context: Data context information
         """
-        # Retrieve similar examples
         examples = self.retrieve_examples(question)
         
-        # Create prompt with examples
         prompt = self.create_prompt(question, examples)
         
-        # Generate Python code using Cortex Complete
         generated_code = self.run_cortex_complete(prompt).strip()
         
-        # Clean up the generated code if it contains markdown markers
         if generated_code.startswith("```python"):
             generated_code = generated_code.replace("```python", "").replace("```", "").strip()
         
@@ -161,16 +156,13 @@ class MatplotlibVisualizationTool(BaseTool):
             print(f"MatplotlibVisualizationTool executing with prompt: {prompt}")
             print(f"Data context: {data_context}")
 
-            # Validate inputs
             self.validate_input(prompt, data_context)
 
-            # Generate visualization code
             result = self._rag_generator.generate_python(
                 question=prompt,
-                data_context=data_context  # Pass data_context
+                data_context=data_context
             )
 
-            # Format and return the result
             return self.format_output(
                 code=result['generated_code'],
                 data_context=data_context
@@ -189,7 +181,6 @@ class MatplotlibVisualizationTool(BaseTool):
             if self.result_as_answer:
                 return f"Failed to generate visualization code: {str(e)}"
             raise
-
 
 # # USAGE
 # from snowflake.snowpark.session import Session

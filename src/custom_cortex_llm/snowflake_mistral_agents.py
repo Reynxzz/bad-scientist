@@ -6,6 +6,7 @@ from crewai import LLM
 from typing import Optional, List, Dict, Union
 import time
 from config import MODEL_NAME, MODEL_TEMPERATURE
+import json
 
 class SnowflakeCortexLLM(CustomLLM):
     def __init__(self, session: Session, model_name: str = MODEL_NAME):
@@ -18,10 +19,31 @@ class SnowflakeCortexLLM(CustomLLM):
             prompt = self._format_messages(messages)
             
             # Call Snowflake Cortex
-            response = self.session.sql(
-                "SELECT snowflake.cortex.complete(?, ?)",
-                params=(self.model_name, prompt)
+
+            messages = json.dumps([
+                {
+                    'role': 'system', 
+                    'content': 'You are a helpful AI decision maker agent that understand user intention and know which tools or function (if required) you can use to fullfil user requiremnts'
+                },
+                {
+                    'role': 'user', 
+                    'content': prompt
+                }
+            ])
+            
+            parameters = json.dumps({                               
+                'temperature': MODEL_TEMPERATURE,
+            })
+            
+            result = self.session.sql(
+                "SELECT snowflake.cortex.complete(?, parse_json(?), parse_json(?))",
+                params=[self.model_name, messages, parameters]
             ).collect()[0][0]
+
+            response = json.loads(result)
+            
+            if response and 'choices' in response and len(response['choices']) > 0:
+                response['choices'][0]['messages'].strip() 
 
             # Format the response
             completion_response = {

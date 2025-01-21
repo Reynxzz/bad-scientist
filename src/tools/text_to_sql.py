@@ -2,9 +2,10 @@ from typing import Type, Dict, Optional, List
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 from snowflake.snowpark.session import Session
-from config import MODEL_NAME
+from config import MODEL_NAME, MODEL_TEMPERATURE
 from dataclasses import dataclass
 from snowflake.core import Root
+import json
 
 @dataclass
 class TableInfo:
@@ -105,11 +106,30 @@ class RAGSQLGenerator:
         Args:
             prompt: Input prompt for the model
         """
+        messages = json.dumps([
+            {
+                'role': 'system', 
+                'content': 'You are a helpful AI assistant to generate Snowflake SQL query using user specified data, dont use provided implementation example as it is but adapt it into user data to generate new SQL query'
+            },
+            {
+                'role': 'user', 
+                'content': prompt
+            }
+        ])
+
+        parameters = json.dumps({                               
+            'temperature': MODEL_TEMPERATURE,
+        })
+        
         result = self.session.sql(
-            "SELECT snowflake.cortex.complete(?, ?)",
-            params=[self.model_name, prompt]
+            "SELECT snowflake.cortex.complete(?, parse_json(?), parse_json(?))",
+            params=[MODEL_NAME, messages, parameters]
         ).collect()[0][0]
-        return result
+
+        response = json.loads(result)
+        
+        if response and 'choices' in response and len(response['choices']) > 0:
+            return response['choices'][0]['messages'].strip()
 
     def generate_sql(self, question: str, table_context: str = None) -> Dict:
         """Generate SQL for a given question with table context
@@ -231,10 +251,31 @@ class SnowflakeTableTool(BaseTool):
         If no related/relevant tables are found, respond with: "No Snowflake data required".
         """
         
-        return self._session.sql(
-            "SELECT snowflake.cortex.complete(?, ?)",
-            params=(MODEL_NAME, prompt)
+        messages = json.dumps([
+            {
+                'role': 'system', 
+                'content': 'You are a helpful AI assistant that understand user specified data (tables/column) that useful to fulfill user requirements. recommend which tables and columns would be most relevant for the given query'
+            },
+            {
+                'role': 'user', 
+                'content': prompt
+            }
+        ])
+
+        parameters = json.dumps({                               
+            'temperature': MODEL_TEMPERATURE,
+        })
+        
+        result = self._session.sql(
+            "SELECT snowflake.cortex.complete(?, parse_json(?), parse_json(?))",
+            params=[MODEL_NAME, messages, parameters]
         ).collect()[0][0]
+
+        response = json.loads(result)
+        
+        # Extract just the messages content from the first choice
+        if response and 'choices' in response and len(response['choices']) > 0:
+            return response['choices'][0]['messages'].strip()
 
     def _run(self, query: str, generate_sql: bool = False) -> str:
         """Search for relevant tables and optionally generate SQL query."""
@@ -261,36 +302,36 @@ class SnowflakeTableTool(BaseTool):
         
         return f"{tables_analysis}{generated_sql}"
 
-# # Usage:
-# from snowflake.snowpark.session import Session
-# from config import CONNECTION_PARAMETER
+# Usage:
+from snowflake.snowpark.session import Session
+from config import CONNECTION_PARAMETER
 
-# session = Session.builder.configs(CONNECTION_PARAMETER).create()
+session = Session.builder.configs(CONNECTION_PARAMETER).create()
 
-# rag_generator = RAGSQLGenerator(session=session)
+rag_generator = RAGSQLGenerator(session=session)
 
-# snowflake_tool = SnowflakeTableTool(
-#     snowpark_session=session,
-#     rag_generator=rag_generator
-# )
+snowflake_tool = SnowflakeTableTool(
+    snowpark_session=session,
+    rag_generator=rag_generator
+)
 
-# import time
-# from datetime import datetime
+import time
+from datetime import datetime
 
-# start_time = time.time()
-# print(f"Starting execution at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+start_time = time.time()
+print(f"Starting execution at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-# result = snowflake_tool.run(
-#     query="Create a Streamlit dashboard for Uber's operations team to analyze driver performance and payments",
-#     generate_sql=True
-# )
+result = snowflake_tool.run(
+    query="Create a Streamlit dashboard for Uber's operations team to analyze driver performance and payments",
+    generate_sql=True
+)
 
-# end_time = time.time()
-# execution_time = end_time - start_time
+end_time = time.time()
+execution_time = end_time - start_time
 
-# print("\n=== Execution Results ===")
-# print(f"Total execution time: {execution_time:.2f} seconds")
-# print("\n=== Query Results ===")
-# print(result)
+print("\n=== Execution Results ===")
+print(f"Total execution time: {execution_time:.2f} seconds")
+print("\n=== Query Results ===")
+print(result)
 
-# # TESTED --> Total execution time: 28.17 seconds
+# TESTED --> Total execution time: 28.17 seconds

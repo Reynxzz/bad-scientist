@@ -1,3 +1,7 @@
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
 from snowflake.snowpark.session import Session
@@ -9,9 +13,6 @@ from tools.text_to_matplotlib import MatplotlibVisualizationTool, RAGPythonGener
 import logging
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-__import__('pysqlite3')
-import sys
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)

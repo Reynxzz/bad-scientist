@@ -47,11 +47,11 @@ def get_snowflake_session():
 
 # Data loading function
 @st.cache_data(ttl=3600)  # Cache data for 1 hour
-def load_data(session):
+def load_data(_session): # use _ to prevent error in streamlit when defining session
     try:
         # Example query - modify based on your needs
         query = "SELECT * FROM YOUR_TABLE WHERE DATE_COLUMN >= DATEADD(month, -12, CURRENT_DATE())"
-        df = session.sql(query).to_pandas()
+        df = _session.sql(query).to_pandas()
         df.columns = df.columns.str.lower()  # Convert column names to lowercase
         return df
     except Exception as e:
@@ -64,11 +64,11 @@ def main():
     st.markdown("Analyze your data with interactive visualizations and filters")
 
     # Initialize session
-    session = get_snowflake_session()
+    _session = get_snowflake_session()
 
     # Load data
     with st.spinner('Loading data...'):
-        df = load_data(session)
+        df = load_data(_session)
 
     if df is not None:
         # Sidebar filters

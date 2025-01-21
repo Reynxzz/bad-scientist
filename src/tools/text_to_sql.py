@@ -302,36 +302,36 @@ class SnowflakeTableTool(BaseTool):
         
         return f"{tables_analysis}{generated_sql}"
 
-# Usage:
-from snowflake.snowpark.session import Session
-from config import CONNECTION_PARAMETER
+# # Usage:
+# from snowflake.snowpark.session import Session
+# from config import CONNECTION_PARAMETER
 
-session = Session.builder.configs(CONNECTION_PARAMETER).create()
+# session = Session.builder.configs(CONNECTION_PARAMETER).create()
 
-rag_generator = RAGSQLGenerator(session=session)
+# rag_generator = RAGSQLGenerator(session=session)
 
-snowflake_tool = SnowflakeTableTool(
-    snowpark_session=session,
-    rag_generator=rag_generator
-)
+# snowflake_tool = SnowflakeTableTool(
+#     snowpark_session=session,
+#     rag_generator=rag_generator
+# )
 
-import time
-from datetime import datetime
+# import time
+# from datetime import datetime
 
-start_time = time.time()
-print(f"Starting execution at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+# start_time = time.time()
+# print(f"Starting execution at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-result = snowflake_tool.run(
-    query="Create a Streamlit dashboard for Uber's operations team to analyze driver performance and payments",
-    generate_sql=True
-)
+# result = snowflake_tool.run(
+#     query="Create a Streamlit dashboard for Uber's operations team to analyze driver performance and payments",
+#     generate_sql=True
+# )
 
-end_time = time.time()
-execution_time = end_time - start_time
+# end_time = time.time()
+# execution_time = end_time - start_time
 
-print("\n=== Execution Results ===")
-print(f"Total execution time: {execution_time:.2f} seconds")
-print("\n=== Query Results ===")
-print(result)
+# print("\n=== Execution Results ===")
+# print(f"Total execution time: {execution_time:.2f} seconds")
+# print("\n=== Query Results ===")
+# print(result)
 
-# TESTED --> Total execution time: 28.17 seconds
+# # TESTED --> Total execution time: 28.17 seconds

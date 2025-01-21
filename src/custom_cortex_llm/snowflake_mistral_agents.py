@@ -18,8 +18,6 @@ class SnowflakeCortexLLM(CustomLLM):
         try:
             prompt = self._format_messages(messages)
             
-            # Call Snowflake Cortex
-
             messages = json.dumps([
                 {
                     'role': 'system', 
@@ -42,8 +40,16 @@ class SnowflakeCortexLLM(CustomLLM):
 
             response = json.loads(result)
             
+            # Extract the content from the response
+            content = ""
             if response and 'choices' in response and len(response['choices']) > 0:
-                response['choices'][0]['messages'].strip() 
+                # Ensure we're getting a string content from the response
+                if isinstance(response['choices'][0], dict) and 'message' in response['choices'][0]:
+                    content = response['choices'][0]['message'].get('content', '')
+                elif isinstance(response['choices'][0], dict) and 'text' in response['choices'][0]:
+                    content = response['choices'][0]['text']
+                else:
+                    content = str(response['choices'][0])
 
             # Format the response
             completion_response = {
@@ -52,7 +58,7 @@ class SnowflakeCortexLLM(CustomLLM):
                     "finish_reason": "stop",
                     "index": 0,
                     "message": {
-                        "content": response,
+                        "content": content,  # Use the extracted content
                         "role": "assistant"
                     }
                 }],

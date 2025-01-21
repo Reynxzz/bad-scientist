@@ -12,5 +12,6 @@ class DataAnalysisAgent(Agent):
             tables and fields that can support the implementation requirements.""",
             llm=llm,
             tools=tools,
-            verbose=True
+            verbose=True,
+            memory=True
         )

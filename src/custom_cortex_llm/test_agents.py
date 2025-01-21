@@ -24,7 +24,7 @@ def test_agent():
         session = Session.builder.configs(connection_params).create()
 
         # Initialize the LLM
-        from snowflake_mistral_agents import CrewSnowflakeLLM  # Update with your actual module name
+        from snowflake_mistral_agents import CrewSnowflakeLLM
         print("\nInitializing LLM...")
         llm = CrewSnowflakeLLM(
             session=session,
@@ -40,6 +40,7 @@ def test_agent():
             backstory="You are a helpful assistant who provides clear and concise answers.",
             allow_delegation=False,
             llm=llm,
+            tools=[],
             verbose=True
         )
 
@@ -48,7 +49,8 @@ def test_agent():
         task = Task(
             description="Say hello and introduce yourself briefly.",
             expected_output="A friendly greeting and brief introduction",
-            agent=agent
+            agent=agent,
+            tools=[]
         )
 
         # Create and run crew
@@ -57,7 +59,7 @@ def test_agent():
             agents=[agent],
             tasks=[task],
             process=Process.sequential,
-            verbose=True
+            verbose=True  # Changed from 2 to True
         )
 
         # Execute

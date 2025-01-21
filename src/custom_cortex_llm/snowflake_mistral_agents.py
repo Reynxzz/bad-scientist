@@ -3,33 +3,73 @@ from litellm import CustomLLM, completion
 from litellm.types.utils import ModelResponse
 from snowflake.snowpark.session import Session
 from crewai import LLM
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Union
 import time
+from config import MODEL_NAME, MODEL_TEMPERATURE
+import json
 
 class SnowflakeCortexLLM(CustomLLM):
-    def __init__(self, session: Session, model_name: str = "mistral-large2"):
+    def __init__(self, session: Session, model_name: str = MODEL_NAME):
         super().__init__()
         self.session = session
         self.model_name = model_name
+        self._supported_params = [
+            "model",
+            "messages",
+            "temperature",
+            "max_tokens",
+            "top_p",
+            "stream",
+            "presence_penalty",
+            "frequency_penalty"
+        ]
 
+    @property
+    def supported_params(self):
+        return self._supported_params
+    
     def completion(self, model: str, messages: List[Dict[str, str]], **kwargs) -> ModelResponse:
         try:
             prompt = self._format_messages(messages)
             
-            # Call Snowflake
-            response = self.session.sql(
-                "SELECT snowflake.cortex.complete(?, ?)",
-                params=(self.model_name, prompt)
+            messages = json.dumps([
+                {
+                    'role': 'system', 
+                    'content': 'You are a helpful AI decision maker agent that understand user intention and know which tools or function (if required) you can use to fullfil user requiremnts'
+                },
+                {
+                    'role': 'user', 
+                    'content': prompt
+                }
+            ])
+            
+            parameters = json.dumps({                               
+                'temperature': MODEL_TEMPERATURE,
+            })
+            
+            result = self.session.sql(
+                "SELECT snowflake.cortex.complete(?, parse_json(?), parse_json(?))",
+                params=[self.model_name, messages, parameters]
             ).collect()[0][0]
 
-            # Format the response
+            response = json.loads(result)
+            
+            content = ""
+            if response and 'choices' in response and len(response['choices']) > 0:
+                if isinstance(response['choices'][0], dict) and 'message' in response['choices'][0]:
+                    content = response['choices'][0]['message'].get('content', '')
+                elif isinstance(response['choices'][0], dict) and 'text' in response['choices'][0]:
+                    content = response['choices'][0]['text']
+                else:
+                    content = str(response['choices'][0])
+
             completion_response = {
                 "id": f"snowflake-cortex-{int(time.time())}",
                 "choices": [{
                     "finish_reason": "stop",
                     "index": 0,
                     "message": {
-                        "content": response,
+                        "content": content,
                         "role": "assistant"
                     }
                 }],
@@ -55,9 +95,9 @@ class SnowflakeCortexLLM(CustomLLM):
 class CrewSnowflakeLLM(LLM):
     def __init__(
         self,
-        session: Session,
-        model_name: str = "mistral-large2",
-        temperature: float = 0.5,
+        session,
+        model_name: str,
+        temperature: float = MODEL_TEMPERATURE,
         max_tokens: Optional[int] = None,
         **kwargs
     ):
@@ -66,7 +106,8 @@ class CrewSnowflakeLLM(LLM):
         litellm.custom_provider_map = [
             {
                 "provider": "snowflake-cortex",
-                "custom_handler": self.cortex_llm
+                "custom_handler": self.cortex_llm,
+                "supported_params": self.cortex_llm.supported_params
             }
         ]
         
@@ -85,13 +126,16 @@ class CrewSnowflakeLLM(LLM):
             else:
                 messages = prompt
 
-            # Use litellm's completion function
+            params = {
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens
+            }
+            params.update(kwargs)
+
             response = completion(
                 model=self.model,
                 messages=messages,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                **kwargs
+                **params
             )
             
             return response.choices[0].message.content

@@ -1,7 +1,8 @@
-from typing import Type, List
+from typing import Type
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 from snowflake.snowpark.session import Session
+from config import MODEL_NAME
 
 class SnowflakeTableInput(BaseModel):
     """Input schema for table search."""
@@ -20,6 +21,8 @@ class SnowflakeTableTool(BaseTool):
 
     def _run(self, query: str) -> str:
         """Search for relevant tables and summarize with LLM."""
+
+        print(f"`SnowflakeTableTool` called with query input: {query}")
         # Get tables info
         tables_info = self._session.sql("""
             SELECT 
@@ -30,7 +33,6 @@ class SnowflakeTableTool(BaseTool):
             WHERE table_schema = CURRENT_SCHEMA()
         """).collect()
 
-        # Get columns info for all tables
         columns_info = self._session.sql("""
             SELECT 
                 table_name,
@@ -43,14 +45,12 @@ class SnowflakeTableTool(BaseTool):
             ORDER BY table_name, ordinal_position
         """).collect()
 
-        # Format table information
         context_parts = []
         
         for table in tables_info:
             table_name = table['TABLE_NAME']
             table_comment = table['COMMENT'] if table['COMMENT'] else 'No description available'
             
-            # Get columns for this table
             table_columns = [
                 col for col in columns_info 
                 if col['TABLE_NAME'] == table_name
@@ -62,15 +62,14 @@ class SnowflakeTableTool(BaseTool):
             ])
             
             context_parts.append(f"""
-Table: {table_name}
-Description: {table_comment}
-Columns:
-{columns_text}
-""")
+            Table: {table_name}
+            Description: {table_comment}
+            Columns:
+            {columns_text}
+            """)
 
         context = "\n\n".join(context_parts)
         
-        # Generate LLM summary
         prompt = f"""
         Based on the following Snowflake tables information, recommend which tables and columns would be most relevant for the given query.
         Make it short and clear in less than 50 words for each table suggested.
@@ -82,13 +81,15 @@ Columns:
 
         Please provide:
         1. Most relevant tables for this query
-        2. Key columns that could be useful
-        3. Brief explanation of how these could be used
+        2. Key columns that could be useful, also with data type of this column. DO NOT MADE UP ANY TABLES/COLUMN OUTSIDE THE PROVIDED CONTEXT.
+        3. Code to be used in streamlit with Snowflake connector (assume credentials are stored in .env).
+
+        If no related/relevant tables needed or can be usec. Just simply response: "No Snowflake data required".
         """
         
         response = self._session.sql(
             "SELECT snowflake.cortex.complete(?, ?)",
-            params=("mistral-large2", prompt)
+            params=(MODEL_NAME, prompt)
         ).collect()[0][0]
 
         print("Snowflake Tool Response:", response)

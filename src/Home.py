@@ -6,6 +6,9 @@ from snowflake.snowpark.session import Session
 from config import CONNECTION_PARAMETER
 from agents.custom_agents import DataScienceFlow
 import logging
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 # Setup logging
 logging.basicConfig(level=logging.DEBUG)

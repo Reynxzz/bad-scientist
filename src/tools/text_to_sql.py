@@ -109,7 +109,7 @@ class RAGSQLGenerator:
         messages = json.dumps([
             {
                 'role': 'system', 
-                'content': 'You are a helpful AI assistant to generate Snowflake SQL query using user specified data, dont use provided implementation example as it is but adapt it into user data to generate new SQL query'
+                'content': 'You are a helpful AI assistant to generate Snowflake SQL query using user specified data, dont use provided implementation example as it is but adapt it into user data to generate new SQL query. DO NOT make any assumption on tables/column unless it is provided in the examples'
             },
             {
                 'role': 'user', 
@@ -254,7 +254,7 @@ class SnowflakeTableTool(BaseTool):
         messages = json.dumps([
             {
                 'role': 'system', 
-                'content': 'You are a helpful AI assistant that understand user specified data (tables/column) that useful to fulfill user requirements. recommend which tables and columns would be most relevant for the given query'
+                'content': 'You are a helpful AI assistant that understand user specified data (tables/column) that useful to fulfill user requirements. recommend which tables and columns would be most relevant for the given query. DO NOT make any assumption on columns or tables beside the provided examples'
             },
             {
                 'role': 'user', 

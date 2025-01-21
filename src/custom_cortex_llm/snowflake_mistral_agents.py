@@ -13,7 +13,21 @@ class SnowflakeCortexLLM(CustomLLM):
         super().__init__()
         self.session = session
         self.model_name = model_name
+        self._supported_params = [
+            "model",
+            "messages",
+            "temperature",
+            "max_tokens",
+            "top_p",
+            "stream",
+            "presence_penalty",
+            "frequency_penalty"
+        ]
 
+    @property
+    def supported_params(self):
+        return self._supported_params
+    
     def completion(self, model: str, messages: List[Dict[str, str]], **kwargs) -> ModelResponse:
         try:
             prompt = self._format_messages(messages)
@@ -40,10 +54,8 @@ class SnowflakeCortexLLM(CustomLLM):
 
             response = json.loads(result)
             
-            # Extract the content from the response
             content = ""
             if response and 'choices' in response and len(response['choices']) > 0:
-                # Ensure we're getting a string content from the response
                 if isinstance(response['choices'][0], dict) and 'message' in response['choices'][0]:
                     content = response['choices'][0]['message'].get('content', '')
                 elif isinstance(response['choices'][0], dict) and 'text' in response['choices'][0]:
@@ -51,14 +63,13 @@ class SnowflakeCortexLLM(CustomLLM):
                 else:
                     content = str(response['choices'][0])
 
-            # Format the response
             completion_response = {
                 "id": f"snowflake-cortex-{int(time.time())}",
                 "choices": [{
                     "finish_reason": "stop",
                     "index": 0,
                     "message": {
-                        "content": content,  # Use the extracted content
+                        "content": content,
                         "role": "assistant"
                     }
                 }],
@@ -82,23 +93,10 @@ class SnowflakeCortexLLM(CustomLLM):
         return "\n".join(formatted)
     
 class CrewSnowflakeLLM(LLM):
-    """
-    Integration for using Snowflake's Cortex LLM with CrewAI agents via LiteLLM.
-        - SnowflakeCortexLLM: Custom LLM implementation for Snowflake's Cortex
-        - CrewSnowflakeLLM: CrewAI-compatible wrapper for SnowflakeCortexLLM
-
-    Example:
-        llm = CrewSnowflakeLLM(
-            session=snowpark_session,
-            model_name="your_model",
-            temperature=0.7
-        )
-        agent = Agent(role="Assistant", llm=llm)
-    """
     def __init__(
         self,
-        session: Session,
-        model_name: str = MODEL_NAME,
+        session,
+        model_name: str,
         temperature: float = MODEL_TEMPERATURE,
         max_tokens: Optional[int] = None,
         **kwargs
@@ -108,7 +106,8 @@ class CrewSnowflakeLLM(LLM):
         litellm.custom_provider_map = [
             {
                 "provider": "snowflake-cortex",
-                "custom_handler": self.cortex_llm
+                "custom_handler": self.cortex_llm,
+                "supported_params": self.cortex_llm.supported_params
             }
         ]
         
@@ -127,13 +126,16 @@ class CrewSnowflakeLLM(LLM):
             else:
                 messages = prompt
 
-            # Use litellm's completion function
+            params = {
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens
+            }
+            params.update(kwargs)
+
             response = completion(
                 model=self.model,
                 messages=messages,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                **kwargs
+                **params
             )
             
             return response.choices[0].message.content
